@@ -801,6 +801,13 @@ int main(int argc, const char *argv[]) {
    mgr->InitializePhysiologyValue();
    mgr->InitializePhysiologyWaveform();
 
+   m_mgr->InitializeOperationalDescription();
+   m_mgr->InitializeModuleConfiguration();
+   m_mgr->InitializeStatus();
+
+   m_mgr->CreateOperationalDescriptionPublisher();
+   m_mgr->CreateModuleConfigurationPublisher();
+   m_mgr->CreateStatusPublisher();
 
    mgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
    mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
@@ -826,8 +833,6 @@ int main(int argc, const char *argv[]) {
    std::thread t1(UdpDiscoveryThread);
    s = new Server(bridgePort);
    std::string action;
-
-
 
 
    s->AcceptAndDispatch();
