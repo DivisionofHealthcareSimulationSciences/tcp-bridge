@@ -801,13 +801,13 @@ int main(int argc, const char *argv[]) {
    mgr->InitializePhysiologyValue();
    mgr->InitializePhysiologyWaveform();
 
-   m_mgr->InitializeOperationalDescription();
-   m_mgr->InitializeModuleConfiguration();
-   m_mgr->InitializeStatus();
+   mgr->InitializeOperationalDescription();
+   mgr->InitializeModuleConfiguration();
+   mgr->InitializeStatus();
 
-   m_mgr->CreateOperationalDescriptionPublisher();
-   m_mgr->CreateModuleConfigurationPublisher();
-   m_mgr->CreateStatusPublisher();
+   mgr->CreateOperationalDescriptionPublisher();
+   mgr->CreateModuleConfigurationPublisher();
+   mgr->CreateStatusPublisher();
 
    mgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
    mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
