@@ -395,6 +395,18 @@ void HandleCapabilities(Client *c, std::string const &capabilityVal) {
    std::string serialNumber(serial);
    std::string moduleVersion(module_version);
 
+   AMM::OperationalDescription od;
+   od.name(nodeName);
+   od.model(nodeModel);
+   od.manufacturer(nodeManufacturer);
+   od.serial_number(serialNumber);
+   od.module_id(m_uuid);
+   od.module_version(moduleVersion);
+   // const std::string capabilities = AMM::Utility::read_file_to_string("config/tcp_bridge_capabilities.xml");
+   // od.capabilities_schema(capabilities);
+   od.description();
+   mgr->WriteOperationalDescription(od);
+
    // Set the client's type
    ServerThread::LockMutex(c->id);
    c->SetClientType(nodeName);
@@ -477,11 +489,15 @@ void HandleStatus(Client *c, std::string const &statusVal) {
    std::string nodeName(name);
 
    std::size_t found = statusVal.find(haltingString);
+   AMM::Status s;
+   s.module_id(m_uuid);
+   s.capability(nodeName);
    if (found != std::string::npos) {
-      //mgr->SetStatus(c->id, nodeName, HALTING_ERROR);
+      s.value(AMM::StatusValue::INOPERATIVE);
    } else {
-      //mgr->SetStatus(c->id, nodeName, OPERATIONAL);
+      s.value(AMM::StatusValue::OPERATIONAL);
    }
+   mgr->WriteStatus(s);
 }
 
 void DispatchRequest(Client *c, std::string const &request) {
