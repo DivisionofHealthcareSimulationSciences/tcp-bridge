@@ -178,6 +178,13 @@ void sendConfigToAll(std::string scene) {
    }
 }
 
+class TCPBridgeListener; // forward declare
+
+const std::string moduleName = "AMM_TCP_Bridge";
+const std::string configFile = "config/tcp_bridge_amm.xml";
+AMM::DDSManager<TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
+AMM::UUID m_uuid;
+
 /**
  * FastRTPS/DDS Listener for subscriptions
  */
@@ -291,21 +298,74 @@ public:
        }
     }
 
+    void onNewSimulationControl(AMM::SimulationControl &simControl, SampleInfo_t *info) {
+       bool doWriteTopic = false;
+
+       switch (simControl.type()) {
+          case AMM::ControlType::RUN: {
+             LOG_INFO << "Message recieved; Run sim.";
+             std::string tmsg = "ACT=START_SIM";
+             s->SendToAll(tmsg);
+             break;
+          }
+
+          case AMM::ControlType::HALT: {
+             LOG_INFO << "Message recieved; Halt sim";
+             std::string tmsg = "ACT=PAUSE_SIM";
+             s->SendToAll(tmsg);
+             break;
+          }
+
+          case AMM::ControlType::RESET: {
+             LOG_INFO << "Message recieved; Reset sim";
+             std::string tmsg = "ACT=RESET_SIM";
+             s->SendToAll(tmsg);
+             break;
+          }
+
+          case AMM::ControlType::SAVE: {
+             LOG_INFO << "Message recieved; Save sim";
+             //SaveSimulation(doWriteTopic);
+             break;
+          }
+       }
+    }
+
     void onNewCommand(AMM::Command &c, eprosima::fastrtps::SampleInfo_t *info) {
        if (!c.message().compare(0, sysPrefix.size(), sysPrefix)) {
           std::string value = c.message().substr(sysPrefix.size());
           if (value.compare("START_SIM") == 0) {
+             AMM::SimulationControl simControl;
+             auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+             simControl.timestamp(ms);
+             simControl.type(AMM::ControlType::RUN);
+             mgr->WriteSimulationControl(simControl);
              std::string tmsg = "ACT=START_SIM";
              s->SendToAll(tmsg);
           } else if (value.compare("STOP_SIM") == 0) {
+             AMM::SimulationControl simControl;
+             auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+             simControl.timestamp(ms);
+             simControl.type(AMM::ControlType::HALT);
+             mgr->WriteSimulationControl(simControl);
              std::string tmsg = "ACT=STOP_SIM";
              s->SendToAll(tmsg);
           } else if (value.compare("PAUSE_SIM") == 0) {
+             AMM::SimulationControl simControl;
+             auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+             simControl.timestamp(ms);
+             simControl.type(AMM::ControlType::HALT);
+             mgr->WriteSimulationControl(simControl);
              std::string tmsg = "ACT=PAUSE_SIM";
              s->SendToAll(tmsg);
           } else if (value.compare("RESET_SIM") == 0) {
              std::string tmsg = "ACT=RESET_SIM";
              s->SendToAll(tmsg);
+             AMM::SimulationControl simControl;
+             auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+             simControl.timestamp(ms);
+             simControl.type(AMM::ControlType::RESET);
+             mgr->WriteSimulationControl(simControl);
              InitializeLabNodes();
           } else if (!value.compare(0, loadScenarioPrefix.size(),
                                     loadScenarioPrefix)) {
@@ -325,10 +385,6 @@ public:
     }
 };
 
-const std::string moduleName = "AMM_TCP_Bridge";
-const std::string configFile = "config/tcp_bridge_amm.xml";
-AMM::DDSManager<TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
-AMM::UUID m_uuid;
 
 void PublishSettings(std::string const &equipmentType) {
    std::ostringstream payload;
