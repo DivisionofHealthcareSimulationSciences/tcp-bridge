@@ -765,10 +765,12 @@ void *Server::HandleClient(void *args) {
                   if (topic == "AMM_Render_Modification") {
                      AMM::RenderModification renderMod;
                      renderMod.type(modType);
+                     renderMod.data(modPayload);
                      mgr->WriteRenderModification(renderMod);
                   } else if (topic == "AMM_Physiology_Modification") {
                      AMM::PhysiologyModification physMod;
                      physMod.type(modType);
+                     physMod.data(modPayload);
                      mgr->WritePhysiologyModification(physMod);
                   } else if (topic == "AMM_Performance_Assessment") {
                      AMM::Assessment assessment;
