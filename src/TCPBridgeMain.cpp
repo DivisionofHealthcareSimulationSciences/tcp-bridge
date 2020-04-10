@@ -886,7 +886,7 @@ int main(int argc, const char *argv[]) {
    mgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
    mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
    mgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
-   // mgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
+   mgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
    mgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
    mgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
 
