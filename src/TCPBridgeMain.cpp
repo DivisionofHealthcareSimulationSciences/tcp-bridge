@@ -258,7 +258,7 @@ public:
                   << std::endl;
        string stringOut = messageOut.str();
 
-       LOG_DEBUG << "Received a phys mod: " << stringOut;
+       LOG_DEBUG << "Received a phys mod via DDS, republishing to TCP clients: " << stringOut;
 
        auto it = clientMap.begin();
        while (it != clientMap.end()) {
@@ -278,8 +278,7 @@ public:
     }
 
     void onNewEventRecord(AMM::EventRecord &er, SampleInfo_t *info) {
-       // write event record UUID -> participant ID into a map?
-       LOG_INFO << "Received an event record, so we're storing it in a simple map.";
+       LOG_INFO << "Received an event record of type " << er.type() << ", so we're storing it in a simple map.";
        eventRecords[er.id().id()] = er;
     }
 
@@ -287,14 +286,10 @@ public:
        std::string location;
        std::string practitioner;
 
-       LOG_INFO << "Render modification with parent event ID of " << rendMod.event_id().id();
        if (eventRecords.count(rendMod.event_id().id()) > 0) {
-          LOG_INFO << "\tFound event record!";
           AMM::EventRecord er = eventRecords[rendMod.event_id().id()];
           location = er.location().name();
           practitioner = er.agent_id().id();
-          LOG_INFO << "\tLocation from ER is " << location;
-          LOG_INFO << "\tPractitioner from ER is " << practitioner;
        }
 
        std::ostringstream messageOut;
@@ -306,7 +301,7 @@ public:
                   << std::endl;
        string stringOut = messageOut.str();
 
-       LOG_DEBUG << "Received a render mod: " << stringOut;
+       LOG_DEBUG << "Received a render mod via DDS, republishing to TCP clients: " << stringOut;
 
        auto it = clientMap.begin();
        while (it != clientMap.end()) {
@@ -840,9 +835,11 @@ void *Server::HandleClient(void *args) {
                      AMM::UUID agentID;
                      agentID.id(modLearner);
                      AMM::EventRecord er;
+                     er.id(erID);
                      er.location(fma);
                      er.agent_id(agentID);
                      er.type(modType);
+                     mgr->WriteEventRecord(er);
 
                      AMM::Assessment assessment;
                      assessment.event_id(erID);
