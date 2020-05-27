@@ -253,7 +253,7 @@ public:
        messageOut << "[AMM_Physiology_Modification]"
                   << "type=" << pm.type() << ";"
                   << "location=" << location << ";"
-                  << "learner_id=" << practitioner << ";"
+                  << "participant_id=" << practitioner << ";"
                   << "payload=" << pm.data()
                   << std::endl;
        string stringOut = messageOut.str();
@@ -297,7 +297,7 @@ public:
        messageOut << "[AMM_Render_Modification]"
                   << "type=" << rendMod.type() << ";"
                   << "location=" << location << ";"
-                  << "learner_id=" << practitioner << ";"
+                  << "participant_id=" << practitioner << ";"
                   << "payload=" << rendMod.data()
                   << std::endl;
        string stringOut = messageOut.str();
@@ -769,9 +769,9 @@ void *Server::HandleClient(void *args) {
                      modLocation = location->second;
                   }
 
-                  auto learner_id = kvp.find("learner_id");
-                  if (learner_id != kvp.end()) {
-                     modLearner = learner_id->second;
+                  auto participant_id = kvp.find("participant_id");
+                  if (participant_id != kvp.end()) {
+                     modLearner = participant_id->second;
                   }
 
                   auto payload = kvp.find("payload");
