@@ -785,17 +785,55 @@ void *Server::HandleClient(void *args) {
                   }
 
                   if (topic == "AMM_Render_Modification") {
+                     AMM::UUID erID;
+                     erID.id(mgr->GenerateUuidString());
+                     FMA_Location fma;
+                     fma.name(modLocation);
+                     AMM::UUID agentID;
+                     agentID.id(modLearner);
+                     AMM::EventRecord er;
+                     er.location(fma);
+                     er.agent_id(agentID);
+                     er.type(modType);
+                     mgr->WriteEventRecord(er);
+
                      AMM::RenderModification renderMod;
+                     renderMod.event_id(erID);
                      renderMod.type(modType);
                      renderMod.data(modPayload);
                      mgr->WriteRenderModification(renderMod);
                   } else if (topic == "AMM_Physiology_Modification") {
+                     AMM::UUID erID;
+                     erID.id(mgr->GenerateUuidString());
+                     FMA_Location fma;
+                     fma.name(modLocation);
+                     AMM::UUID agentID;
+                     agentID.id(modLearner);
+                     AMM::EventRecord er;
+                     er.location(fma);
+                     er.agent_id(agentID);
+                     er.type(modType);
+                     mgr->WriteEventRecord(er);
+
                      AMM::PhysiologyModification physMod;
+                     physMod.event_id(erID);
                      physMod.type(modType);
                      physMod.data(modPayload);
                      mgr->WritePhysiologyModification(physMod);
                   } else if (topic == "AMM_Performance_Assessment") {
+                     AMM::UUID erID;
+                     erID.id(mgr->GenerateUuidString());
+                     FMA_Location fma;
+                     fma.name(modLocation);
+                     AMM::UUID agentID;
+                     agentID.id(modLearner);
+                     AMM::EventRecord er;
+                     er.location(fma);
+                     er.agent_id(agentID);
+                     er.type(modType);
+
                      AMM::Assessment assessment;
+                     assessment.event_id(erID);
                      mgr->WriteAssessment(assessment);
                   } else if (topic == "AMM_Command") {
                      AMM::Command cmdInstance;
