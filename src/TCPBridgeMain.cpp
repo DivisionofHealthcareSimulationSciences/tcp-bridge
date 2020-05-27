@@ -73,7 +73,7 @@ std::map<std::string, std::map<std::string, double>> labNodes;
 std::map<std::string, std::map<std::string, std::string>> equipmentSettings;
 std::map<std::string, std::string> clientMap;
 std::map<std::string, std::string> clientTypeMap;
-
+std::map<std::string, AMM::EventRecord> eventRecords;
 
 void InitializeLabNodes() {
    //
@@ -240,12 +240,20 @@ public:
     }
 
     void onNewPhysiologyModification(AMM::PhysiologyModification &pm, SampleInfo_t *info) {
-       // Publish values that are supposed to go out on every change
+       std::string location;
+       std::string practitioner;
+
+       if (eventRecords.count(pm.event_id().id()) > 0) {
+          AMM::EventRecord er = eventRecords[pm.event_id().id()];
+          location = er.location().name();
+          practitioner = er.agent_id().id();
+       }
+
        std::ostringstream messageOut;
        messageOut << "[AMM_Physiology_Modification]"
                   << "type=" << pm.type() << ";"
-                  //<< "location=" << pm.location().description() << ";"
-                  //<< "learner_id=" << pm.practitioner() << ";"
+                  << "location=" << location << ";"
+                  << "learner_id=" << practitioner << ";"
                   << "payload=" << pm.data()
                   << std::endl;
        string stringOut = messageOut.str();
@@ -269,13 +277,27 @@ public:
        }
     }
 
+    void onNewEventRecord(AMM::EventRecord &er, SampleInfo_t *info) {
+       // write event record UUID -> participant ID into a map?
+       LOG_INFO << "Received an event record, so we're storing it in a simple map.";
+       eventRecords[er.id().id()] = er;
+    }
+
     void onNewRenderModification(AMM::RenderModification &rendMod, SampleInfo_t *info) {
-       // Publish values that are supposed to go out on every change
+       std::string location;
+       std::string practitioner;
+
+       if (eventRecords.count(rendMod.event_id().id()) > 0) {
+          AMM::EventRecord er = eventRecords[rendMod.event_id().id()];
+          location = er.location().name();
+          practitioner = er.agent_id().id();
+       }
+
        std::ostringstream messageOut;
        messageOut << "[AMM_Render_Modification]"
                   << "type=" << rendMod.type() << ";"
-                  //<< "location=" << rm.location().description() << ";"
-                  //<< "learner_id=" << rm.practitioner() << ";"
+                  << "location=" << location << ";"
+                  << "learner_id=" << practitioner << ";"
                   << "payload=" << rendMod.data()
                   << std::endl;
        string stringOut = messageOut.str();
@@ -631,7 +653,7 @@ void *Server::HandleClient(void *args) {
          if (!boost::algorithm::ends_with(globalInboundBuffer[c->id], "\n")) {
             continue;
          }
-         vector<string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
+         vector <string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
          globalInboundBuffer[c->id].clear();
 
          for (auto str : strings) {
@@ -728,14 +750,14 @@ void *Server::HandleClient(void *args) {
 
                   BOOST_FOREACH(std::string
                                    token, tokenList) {
-                              size_t sep_pos = token.find_first_of("=");
-                              std::string key = token.substr(0, sep_pos);
-                              std::string value = (sep_pos == std::string::npos ? "" : token.substr(
-                                 sep_pos + 1,
-                                 std::string::npos));
-                              kvp[key] = value;
-                              LOG_DEBUG << "\t" << key << " => " << kvp[key];
-                           }
+                        size_t sep_pos = token.find_first_of("=");
+                        std::string key = token.substr(0, sep_pos);
+                        std::string value = (sep_pos == std::string::npos ? "" : token.substr(
+                           sep_pos + 1,
+                           std::string::npos));
+                        kvp[key] = value;
+                        LOG_DEBUG << "\t" << key << " => " << kvp[key];
+                     }
 
                   auto type = kvp.find("type");
                   if (type != kvp.end()) {
@@ -874,7 +896,7 @@ int main(int argc, const char *argv[]) {
    mgr->InitializeAssessment();
    mgr->InitializePhysiologyValue();
    mgr->InitializePhysiologyWaveform();
-
+   mgr->InitializeEventRecord();
    mgr->InitializeOperationalDescription();
    mgr->InitializeModuleConfiguration();
    mgr->InitializeStatus();
@@ -882,14 +904,14 @@ int main(int argc, const char *argv[]) {
    mgr->CreateOperationalDescriptionPublisher();
    mgr->CreateModuleConfigurationPublisher();
    mgr->CreateStatusPublisher();
-
+   mgr->CreateEventRecordPublisher();
    mgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
    mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
    mgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
    mgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
    mgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
    mgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
-
+   mgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
    mgr->CreateRenderModificationPublisher();
    mgr->CreatePhysiologyModificationPublisher();
    mgr->CreateSimulationControlPublisher();
