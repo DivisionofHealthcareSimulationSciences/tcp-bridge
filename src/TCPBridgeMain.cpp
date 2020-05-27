@@ -287,10 +287,14 @@ public:
        std::string location;
        std::string practitioner;
 
+       LOG_INFO << "Render modification with parent event ID of " << rendMod.event_id().id();
        if (eventRecords.count(rendMod.event_id().id()) > 0) {
+          LOG_INFO << "\tFound event record!";
           AMM::EventRecord er = eventRecords[rendMod.event_id().id()];
           location = er.location().name();
           practitioner = er.agent_id().id();
+          LOG_INFO << "\tLocation from ER is " << location;
+          LOG_INFO << "\tPractitioner from ER is " << practitioner;
        }
 
        std::ostringstream messageOut;
@@ -787,11 +791,15 @@ void *Server::HandleClient(void *args) {
                   if (topic == "AMM_Render_Modification") {
                      AMM::UUID erID;
                      erID.id(mgr->GenerateUuidString());
+
                      FMA_Location fma;
                      fma.name(modLocation);
+
                      AMM::UUID agentID;
                      agentID.id(modLearner);
+
                      AMM::EventRecord er;
+                     er.id(erID);
                      er.location(fma);
                      er.agent_id(agentID);
                      er.type(modType);
@@ -805,11 +813,15 @@ void *Server::HandleClient(void *args) {
                   } else if (topic == "AMM_Physiology_Modification") {
                      AMM::UUID erID;
                      erID.id(mgr->GenerateUuidString());
+
                      FMA_Location fma;
                      fma.name(modLocation);
+
                      AMM::UUID agentID;
                      agentID.id(modLearner);
+
                      AMM::EventRecord er;
+                     er.id(erID);
                      er.location(fma);
                      er.agent_id(agentID);
                      er.type(modType);
