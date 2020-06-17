@@ -394,7 +394,7 @@ public:
              sendConfigToAll(scene);
           } else {
              std::ostringstream messageOut;
-             messageOut << "ACT" << "=" << c.message();
+             messageOut << "ACT" << "=" << c.message() << std::endl;
              s->SendToAll(messageOut.str());
           }
        } else {
