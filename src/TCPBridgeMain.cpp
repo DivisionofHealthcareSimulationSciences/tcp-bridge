@@ -325,21 +325,21 @@ public:
        switch (simControl.type()) {
           case AMM::ControlType::RUN: {
              LOG_INFO << "Message recieved; Run sim.";
-             std::string tmsg = "ACT=START_SIM";
+             std::string tmsg = "ACT=START_SIM\n";
              s->SendToAll(tmsg);
              break;
           }
 
           case AMM::ControlType::HALT: {
              LOG_INFO << "Message recieved; Halt sim";
-             std::string tmsg = "ACT=PAUSE_SIM";
+             std::string tmsg = "ACT=PAUSE_SIM\n";
              s->SendToAll(tmsg);
              break;
           }
 
           case AMM::ControlType::RESET: {
              LOG_INFO << "Message recieved; Reset sim";
-             std::string tmsg = "ACT=RESET_SIM";
+             std::string tmsg = "ACT=RESET_SIM\n";
              s->SendToAll(tmsg);
              break;
           }
