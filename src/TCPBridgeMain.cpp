@@ -395,14 +395,14 @@ public:
             } else {
                 std::ostringstream messageOut;
                 messageOut << "ACT" << "=" << c.message() << std::endl;
-                LOG_INFO << "Sending unknown system message: " << messageOut;
+                LOG_INFO << "Sending unknown system message: " << messageOut.str();
                 s->SendToAll(messageOut.str());
             }
         } else {
             std::ostringstream messageOut;
             messageOut << "ACT"
                        << "=" << c.message() << "|";
-            LOG_INFO << "Sending unknown message: " << messageOut;
+            LOG_INFO << "Sending unknown message: " << messageOut.str();
             s->SendToAll(messageOut.str());
         }
     }
