@@ -93,6 +93,8 @@ void InitializeLabNodes() {
     labNodes["ALL"]["Substance_Bicarbonate"] = 0.0f;
     labNodes["ALL"]["Substance_BaseExcess"] = 0.0f;
     labNodes["ALL"]["Substance_Lactate_Concentration_mmol"] = 0.0f;
+    labNodes["ALL"]["Substance_Carboxyhemoglobin_Concentration"] = 0.0f;
+    labNodes["ALL"]["Anion_Gap"] = 0.0f;
 
     labNodes["POCT"]["Substance_Sodium"] = 0.0f;
     labNodes["POCT"]["MetabolicPanel_Potassium"] = 0.0f;
@@ -101,6 +103,7 @@ void InitializeLabNodes() {
     labNodes["POCT"]["Substance_Glucose_Concentration"] = 0.0f;
     labNodes["POCT"]["BloodChemistry_BloodUreaNitrogen_Concentration"] = 0.0f;
     labNodes["POCT"]["Substance_Creatinine_Concentration"] = 0.0f;
+    labNodes["POCT"]["Anion_Gap"] = 0.0f;
 
     labNodes["Hematology"]["BloodChemistry_Hemaocrit"] = 0.0f;
     labNodes["Hematology"]["Substance_Hemoglobin_Concentration"] = 0.0f;
@@ -113,6 +116,7 @@ void InitializeLabNodes() {
     labNodes["ABG"]["Substance_BaseExcess"] = 0.0f;
     labNodes["ABG"]["BloodChemistry_Oxygen_Saturation"] = 0.0f;
     labNodes["ABG"]["Substance_Lactate_Concentration_mmol"] = 0.0f;
+    labNodes["ABG"]["Substance_Carboxyhemoglobin_Concentration"] = 0.0f;
 
     labNodes["VBG"]["BloodChemistry_BloodPH"] = 0.0f;
     labNodes["VBG"]["BloodChemistry_Arterial_CarbonDioxide_Pressure"] = 0.0f;
@@ -131,6 +135,7 @@ void InitializeLabNodes() {
     labNodes["BMP"]["Substance_Glucose_Concentration"] = 0.0f;
     labNodes["BMP"]["BloodChemistry_BloodUreaNitrogen_Concentration"] = 0.0f;
     labNodes["BMP"]["Substance_Creatinine_Concentration"] = 0.0f;
+    labNodes["BMP"]["Anion_Gap"] = 0.0f;
 
     labNodes["CBC"]["BloodChemistry_WhiteBloodCell_Count"] = 0.0f;
     labNodes["CBC"]["BloodChemistry_RedBloodCell_Count"] = 0.0f;
