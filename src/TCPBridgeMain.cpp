@@ -24,7 +24,7 @@
 
 #include "AMM/BaseLogger.h"
 
-#include "AMM/Utility.h"
+//#include "AMM/Utility.h"
 
 #include "tinyxml2.h"
 
@@ -43,7 +43,7 @@ int bridgePort = 9015;
 int daemonize = 1;
 int discovery = 1;
 
-std::map<std::string, std::string> globalInboundBuffer;
+std::map <std::string, std::string> globalInboundBuffer;
 
 const string capabilityPrefix = "CAPABILITY=";
 const string settingsPrefix = "SETTINGS=";
@@ -66,14 +66,14 @@ string encodedConfig = "";
 
 bool closed = false;
 
-std::map<std::string, std::vector<std::string>> subscribedTopics;
-std::map<std::string, std::vector<std::string>> publishedTopics;
+std::map <std::string, std::vector<std::string>> subscribedTopics;
+std::map <std::string, std::vector<std::string>> publishedTopics;
 
-std::map<std::string, std::map<std::string, double>> labNodes;
-std::map<std::string, std::map<std::string, std::string>> equipmentSettings;
-std::map<std::string, std::string> clientMap;
-std::map<std::string, std::string> clientTypeMap;
-std::map<std::string, AMM::EventRecord> eventRecords;
+std::map <std::string, std::map<std::string, double>> labNodes;
+std::map <std::string, std::map<std::string, std::string>> equipmentSettings;
+std::map <std::string, std::string> clientMap;
+std::map <std::string, std::string> clientTypeMap;
+std::map <std::string, AMM::EventRecord> eventRecords;
 
 void InitializeLabNodes() {
     //
@@ -191,7 +191,7 @@ class TCPBridgeListener; // forward declare
 
 const std::string moduleName = "AMM_TCP_Bridge";
 const std::string configFile = "config/tcp_bridge_amm.xml";
-AMM::DDSManager<TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
+AMM::DDSManager <TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
 AMM::UUID m_uuid;
 
 /**
@@ -207,7 +207,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), hfname) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
@@ -233,7 +233,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), n.name()) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
@@ -272,7 +272,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), pm.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Physiology_Modification") !=
@@ -302,11 +302,18 @@ public:
         }
 
         std::ostringstream messageOut;
+        std::string rendModPayload;
+        if (rendMod.data().empty()) {
+            rendModPayload = "<RenderModification type='" + rendMod.type() + "'/>";
+        } else {
+            rendModPayload = rendMod.data();
+        }
         messageOut << "[AMM_Render_Modification]"
                    << "type=" << rendMod.type() << ";"
                    << "location=" << location << ";"
                    << "participant_id=" << practitioner << ";"
-                   << "payload=" << rendMod.data()
+                   // << "payload=" << rendMod.data()
+                   << "payload=" << rendModPayload
                    << std::endl;
         string stringOut = messageOut.str();
 
@@ -315,7 +322,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), rendMod.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Render_Modification") !=
                 subV.end()) {
@@ -666,7 +673,7 @@ void *Server::HandleClient(void *args) {
             if (!boost::algorithm::ends_with(globalInboundBuffer[c->id], "\n")) {
                 continue;
             }
-            vector<string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
+            vector <string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
             globalInboundBuffer[c->id].clear();
 
             for (auto str : strings) {
@@ -757,20 +764,20 @@ void *Server::HandleClient(void *args) {
 
                         LOG_INFO << "Received a message for topic " << topic << " with a payload of: " << message;
 
-                        std::list<std::string> tokenList;
+                        std::list <std::string> tokenList;
                         split(tokenList, message, boost::algorithm::is_any_of(";"), boost::token_compress_on);
-                        std::map<std::string, std::string> kvp;
+                        std::map <std::string, std::string> kvp;
 
                         BOOST_FOREACH(std::string
-                                              token, tokenList) {
-                                        size_t sep_pos = token.find_first_of("=");
-                                        std::string key = token.substr(0, sep_pos);
-                                        std::string value = (sep_pos == std::string::npos ? "" : token.substr(
-                                                sep_pos + 1,
-                                                std::string::npos));
-                                        kvp[key] = value;
-                                        LOG_DEBUG << "\t" << key << " => " << kvp[key];
-                                    }
+                        token, tokenList) {
+                            size_t sep_pos = token.find_first_of("=");
+                            std::string key = token.substr(0, sep_pos);
+                            std::string value = (sep_pos == std::string::npos ? "" : token.substr(
+                                    sep_pos + 1,
+                                    std::string::npos));
+                            kvp[key] = value;
+                            LOG_DEBUG << "\t" << key << " => " << kvp[key];
+                        }
 
                         auto type = kvp.find("type");
                         if (type != kvp.end()) {
@@ -924,7 +931,7 @@ void PublishConfiguration() {
 }
 
 int main(int argc, const char *argv[]) {
-    static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+    static plog::ColorConsoleAppender <plog::TxtFormatter> consoleAppender;
     plog::init(plog::verbose, &consoleAppender);
 
     LOG_INFO << "=== [AMM - TCP Bridge] ===";
