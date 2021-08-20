@@ -303,13 +303,16 @@ public:
 
         std::ostringstream messageOut;
         std::string rendModPayload;
+        std::string rendModType;
         if (rendMod.data().empty()) {
             rendModPayload = "<RenderModification type='" + rendMod.type() + "'/>";
+            rendModType = "";
         } else {
             rendModPayload = rendMod.data();
+            rendModType = rendMod.type();
         }
         messageOut << "[AMM_Render_Modification]"
-                   << "type=" << rendMod.type() << ";"
+                   << "type=" << rendModType << ";"
                    << "location=" << location << ";"
                    << "participant_id=" << practitioner << ";"
                    // << "payload=" << rendMod.data()
