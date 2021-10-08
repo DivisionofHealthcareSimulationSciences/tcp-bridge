@@ -65,8 +65,8 @@ const string loadPrefix = "LOAD_STATE:";
 
 std::string currentScenario = "NONE";
 std::string currentState = "NONE";
-std::string currentStatus = "N/A";
-
+std::string currentStatus = "NOT RUNNING";
+bool isPaused = false;
 string encodedConfig = "";
 
 bool closed = false;
@@ -348,6 +348,7 @@ public:
         switch (simControl.type()) {
             case AMM::ControlType::RUN: {
                 currentStatus = "RUNNING";
+                isPaused = false;
                 LOG_INFO << "Message recieved; Run sim.";
                 std::string tmsg = "ACT=START_SIM\n";
                 s->SendToAll(tmsg);
@@ -355,7 +356,11 @@ public:
             }
 
             case AMM::ControlType::HALT: {
-                currentStatus = "HALTED";
+                if (isPaused) {
+                    currentStatus = "PAUSED";
+                } else {
+                    currentStatus = "NOT RUNNING";
+                }
                 LOG_INFO << "Message recieved; Halt sim";
                 std::string tmsg = "ACT=PAUSE_SIM\n";
                 s->SendToAll(tmsg);
@@ -363,7 +368,8 @@ public:
             }
 
             case AMM::ControlType::RESET: {
-                currentStatus = "HALTED";
+                currentStatus = "NOT RUNNING";
+                isPaused = false;
                 LOG_INFO << "Message recieved; Reset sim";
                 std::string tmsg = "ACT=RESET_SIM\n";
                 s->SendToAll(tmsg);
@@ -383,6 +389,7 @@ public:
             std::string value = c.message().substr(sysPrefix.size());
             if (value.compare("START_SIM") == 0) {
                 currentStatus = "RUNNING";
+                isPaused = false;
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -391,7 +398,8 @@ public:
                 std::string tmsg = "ACT=START_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("STOP_SIM") == 0) {
-                currentStatus = "HALTED";
+                currentStatus = "NOT RUNNING";
+                isPaused = false;
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -400,7 +408,8 @@ public:
                 std::string tmsg = "ACT=STOP_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("PAUSE_SIM") == 0) {
-                currentStatus = "HALTED";
+                currentStatus = "PAUSED";
+                isPaused = true;
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -409,7 +418,8 @@ public:
                 std::string tmsg = "ACT=PAUSE_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("RESET_SIM") == 0) {
-                currentStatus = "HALTED";
+                currentStatus = "NOT RUNNING";
+                isPaused = false;
                 std::string tmsg = "ACT=RESET_SIM";
                 s->SendToAll(tmsg);
                 AMM::SimulationControl simControl;
