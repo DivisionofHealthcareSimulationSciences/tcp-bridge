@@ -18,7 +18,7 @@ target_link_libraries(
         PUBLIC amm_std
         PUBLIC Boost::system
         PUBLIC Boost::thread
-        ${TinyXML2_LIBRARIES}
+	tinyxml2
 )
 
 install(TARGETS amm_tcp_bridge RUNTIME DESTINATION bin)

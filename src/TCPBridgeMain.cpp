@@ -54,13 +54,18 @@ const string registerPrefix = "REGISTER=";
 const string requestPrefix = "REQUEST=";
 const string keepHistoryPrefix = "KEEP_HISTORY=";
 const string actionPrefix = "ACT=";
-std::string genericTopicPrefix = "[";
+const string genericTopicPrefix = "[";
 const string keepAlivePrefix = "[KEEPALIVE]";
 const string loadScenarioPrefix = "LOAD_SCENARIO:";
+const string loadStatePrefix = "LOAD_STATE:";
 const string haltingString = "HALTING_ERROR";
 const string sysPrefix = "[SYS]";
 const string actPrefix = "[ACT]";
 const string loadPrefix = "LOAD_STATE:";
+
+std::string currentScenario = "NONE";
+std::string currentState = "NONE";
+std::string currentStatus = "N/A";
 
 string encodedConfig = "";
 
@@ -240,7 +245,6 @@ public:
                 if (c) {
                     std::ostringstream messageOut;
                     messageOut << n.name() << "=" << n.value() << "|" << std::endl;
-                    string stringOut = messageOut.str();
                     Server::SendToClient(c, messageOut.str());
                 }
             }
@@ -343,6 +347,7 @@ public:
 
         switch (simControl.type()) {
             case AMM::ControlType::RUN: {
+                currentStatus = "RUNNING";
                 LOG_INFO << "Message recieved; Run sim.";
                 std::string tmsg = "ACT=START_SIM\n";
                 s->SendToAll(tmsg);
@@ -350,6 +355,7 @@ public:
             }
 
             case AMM::ControlType::HALT: {
+                currentStatus = "HALTED";
                 LOG_INFO << "Message recieved; Halt sim";
                 std::string tmsg = "ACT=PAUSE_SIM\n";
                 s->SendToAll(tmsg);
@@ -357,6 +363,7 @@ public:
             }
 
             case AMM::ControlType::RESET: {
+                currentStatus = "HALTED";
                 LOG_INFO << "Message recieved; Reset sim";
                 std::string tmsg = "ACT=RESET_SIM\n";
                 s->SendToAll(tmsg);
@@ -375,6 +382,7 @@ public:
         if (!c.message().compare(0, sysPrefix.size(), sysPrefix)) {
             std::string value = c.message().substr(sysPrefix.size());
             if (value.compare("START_SIM") == 0) {
+                currentStatus = "RUNNING";
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -383,6 +391,7 @@ public:
                 std::string tmsg = "ACT=START_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("STOP_SIM") == 0) {
+                currentStatus = "HALTED";
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -391,6 +400,7 @@ public:
                 std::string tmsg = "ACT=STOP_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("PAUSE_SIM") == 0) {
+                currentStatus = "HALTED";
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
                 simControl.timestamp(ms);
@@ -399,6 +409,7 @@ public:
                 std::string tmsg = "ACT=PAUSE_SIM";
                 s->SendToAll(tmsg);
             } else if (value.compare("RESET_SIM") == 0) {
+                currentStatus = "HALTED";
                 std::string tmsg = "ACT=RESET_SIM";
                 s->SendToAll(tmsg);
                 AMM::SimulationControl simControl;
@@ -407,10 +418,11 @@ public:
                 simControl.type(AMM::ControlType::RESET);
                 mgr->WriteSimulationControl(simControl);
                 InitializeLabNodes();
-            } else if (!value.compare(0, loadScenarioPrefix.size(),
-                                      loadScenarioPrefix)) {
-                std::string scene = value.substr(loadScenarioPrefix.size());
-                sendConfigToAll(scene);
+            } else if (!value.compare(0, loadScenarioPrefix.size(), loadScenarioPrefix)) {
+                currentScenario = value.substr(loadScenarioPrefix.size());
+                sendConfigToAll(currentScenario);
+            } else if (!value.compare(0, loadPrefix.size(), loadPrefix)) {
+                currentState = value.substr(loadStatePrefix.size());
             } else {
                 std::ostringstream messageOut;
                 messageOut << "ACT" << "=" << c.message() << std::endl;
@@ -599,7 +611,16 @@ void HandleStatus(Client *c, std::string const &statusVal) {
 }
 
 void DispatchRequest(Client *c, std::string const &request) {
-    if (boost::starts_with(request, "LABS")) {
+    if (boost::starts_with(request, "STATUS")) {
+        LOG_DEBUG << "STATUS request";
+        std::ostringstream messageOut;
+        messageOut << "STATUS" << "=" << currentStatus << "|";
+        messageOut << "SCENARIO" << "=" << currentScenario << "|";
+        messageOut << "STATE" << "=" << currentState << "|";
+        Server::SendToClient(c, messageOut.str());
+    }
+    else if(boost::starts_with(request, "LABS"))
+    {
         LOG_DEBUG << "LABS request: " << request;
         const auto equals_idx = request.find_first_of(';');
         if (std::string::npos != equals_idx) {
