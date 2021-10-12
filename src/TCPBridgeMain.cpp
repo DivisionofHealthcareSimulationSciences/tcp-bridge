@@ -431,8 +431,14 @@ public:
             } else if (!value.compare(0, loadScenarioPrefix.size(), loadScenarioPrefix)) {
                 currentScenario = value.substr(loadScenarioPrefix.size());
                 sendConfigToAll(currentScenario);
+                std::ostringstream messageOut;
+                messageOut << "ACT" << "=" << c.message() << std::endl;
+                s->SendToAll(messageOut.str());
             } else if (!value.compare(0, loadPrefix.size(), loadPrefix)) {
                 currentState = value.substr(loadStatePrefix.size());
+                std::ostringstream messageOut;
+                messageOut << "ACT" << "=" << c.message() << std::endl;
+                s->SendToAll(messageOut.str());
             } else {
                 std::ostringstream messageOut;
                 messageOut << "ACT" << "=" << c.message() << std::endl;
