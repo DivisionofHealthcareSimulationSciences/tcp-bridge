@@ -294,8 +294,46 @@ public:
     }
 
     void onNewEventRecord(AMM::EventRecord &er, SampleInfo_t *info) {
-        LOG_INFO << "Received an event record of type " << er.type() << ", so we're storing it in a simple map.";
+        std::string location;
+        std::string practitioner;
+        std::string eType;
+        std::string eData;
+        std::string pType;
+
+        LOG_INFO << "Received an event record of type " << er.type() << " on DDS bus, so we're storing it in a simple map.";
         eventRecords[er.id().id()] = er;
+        location = er.location().name();
+        practitioner = er.agent_id().id();
+        eType = er.type();
+        eData = er.data();
+        pType = AMM::Utility::EEventAgentTypeStr(er.agent_type());
+
+        std::ostringstream messageOut;
+
+        messageOut << "[AMM_EventRecord]"
+                   << "id=" << er.id().id() << ";"
+                   << "type=" << eType << ";"
+                   << "location=" << location << ";"
+                   << "participant_id=" << practitioner << ";"
+                   << "participant_type=" << pType << ";"
+                   << "data=" << eData << ";"
+                   << std::endl;
+        string stringOut = messageOut.str();
+
+        LOG_DEBUG << "Received an EventRecord via DDS, republishing to TCP clients: " << stringOut;
+
+        auto it = clientMap.begin();
+        while (it != clientMap.end()) {
+            std::string cid = it->first;
+            std::vector<std::string> subV = subscribedTopics[cid];
+            if (std::find(subV.begin(), subV.end(), "AMM_EventRecord") != subV.end()) {
+                Client *c = Server::GetClientByIndex(cid);
+                if (c) {
+                    Server::SendToClient(c, stringOut);
+                }
+            }
+            ++it;
+        }
     }
 
     void onNewAssessment(AMM::Assessment &a, eprosima::fastrtps::SampleInfo_t *info) {
