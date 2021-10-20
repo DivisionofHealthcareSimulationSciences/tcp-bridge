@@ -24,6 +24,7 @@
 
 #include "AMM/BaseLogger.h"
 
+
 //#include "AMM/Utility.h"
 
 #include "tinyxml2.h"
@@ -43,7 +44,7 @@ int bridgePort = 9015;
 int daemonize = 1;
 int discovery = 1;
 
-std::map <std::string, std::string> globalInboundBuffer;
+std::map<std::string, std::string> globalInboundBuffer;
 
 const string capabilityPrefix = "CAPABILITY=";
 const string settingsPrefix = "SETTINGS=";
@@ -71,14 +72,14 @@ string encodedConfig = "";
 
 bool closed = false;
 
-std::map <std::string, std::vector<std::string>> subscribedTopics;
-std::map <std::string, std::vector<std::string>> publishedTopics;
+std::map<std::string, std::vector<std::string>> subscribedTopics;
+std::map<std::string, std::vector<std::string>> publishedTopics;
 
-std::map <std::string, std::map<std::string, double>> labNodes;
-std::map <std::string, std::map<std::string, std::string>> equipmentSettings;
-std::map <std::string, std::string> clientMap;
-std::map <std::string, std::string> clientTypeMap;
-std::map <std::string, AMM::EventRecord> eventRecords;
+std::map<std::string, std::map<std::string, double>> labNodes;
+std::map<std::string, std::map<std::string, std::string>> equipmentSettings;
+std::map<std::string, std::string> clientMap;
+std::map<std::string, std::string> clientTypeMap;
+std::map<std::string, AMM::EventRecord> eventRecords;
 
 void InitializeLabNodes() {
     //
@@ -196,7 +197,7 @@ class TCPBridgeListener; // forward declare
 
 const std::string moduleName = "AMM_TCP_Bridge";
 const std::string configFile = "config/tcp_bridge_amm.xml";
-AMM::DDSManager <TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
+AMM::DDSManager<TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
 AMM::UUID m_uuid;
 
 /**
@@ -212,7 +213,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector <std::string> subV = subscribedTopics[cid];
+            std::vector<std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), hfname) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
@@ -238,7 +239,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector <std::string> subV = subscribedTopics[cid];
+            std::vector<std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), n.name()) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
@@ -264,6 +265,8 @@ public:
 
         std::ostringstream messageOut;
         messageOut << "[AMM_Physiology_Modification]"
+                   << "id=" << pm.id().id() << ";"
+                   << "event_id=" << pm.event_id().id() << ";"
                    << "type=" << pm.type() << ";"
                    << "location=" << location << ";"
                    << "participant_id=" << practitioner << ";"
@@ -276,7 +279,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector <std::string> subV = subscribedTopics[cid];
+            std::vector<std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), pm.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Physiology_Modification") !=
@@ -295,10 +298,53 @@ public:
         eventRecords[er.id().id()] = er;
     }
 
+    void onNewAssessment(AMM::Assessment &a, eprosima::fastrtps::SampleInfo_t *info) {
+        std::string location;
+        std::string practitioner;
+        std::string eType;
+
+        LOG_INFO << "Assessment received on DDS bus";
+        if (eventRecords.count(a.event_id().id()) > 0) {
+            AMM::EventRecord er = eventRecords[a.event_id().id()];
+            location = er.location().name();
+            practitioner = er.agent_id().id();
+            eType = er.type();
+        }
+
+        std::ostringstream messageOut;
+
+        messageOut << "[AMM_Assessment]"
+                   << "id=" << a.id().id() << ";"
+                   << "event_id=" << a.event_id().id() << ";"
+                   << "type=" << eType << ";"
+                   << "location=" << location << ";"
+                   << "participant_id=" << practitioner << ";"
+                   << "value=" << AMM::Utility::EAssessmentValueStr(a.value()) << ";"
+                   << "comment=" << a.comment()
+                   << std::endl;
+        string stringOut = messageOut.str();
+
+        LOG_DEBUG << "Received an assessment via DDS, republishing to TCP clients: " << stringOut;
+
+        auto it = clientMap.begin();
+        while (it != clientMap.end()) {
+            std::string cid = it->first;
+            std::vector<std::string> subV = subscribedTopics[cid];
+            if (std::find(subV.begin(), subV.end(), "AMM_Assessment") != subV.end()) {
+                Client *c = Server::GetClientByIndex(cid);
+                if (c) {
+                    Server::SendToClient(c, stringOut);
+                }
+            }
+            ++it;
+        }
+    }
+
     void onNewRenderModification(AMM::RenderModification &rendMod, SampleInfo_t *info) {
         std::string location;
         std::string practitioner;
 
+        LOG_INFO << "Render mod received on DDS bus";
         if (eventRecords.count(rendMod.event_id().id()) > 0) {
             AMM::EventRecord er = eventRecords[rendMod.event_id().id()];
             location = er.location().name();
@@ -316,6 +362,8 @@ public:
             rendModType = rendMod.type();
         }
         messageOut << "[AMM_Render_Modification]"
+                   << "id=" << rendMod.id().id() << ";"
+                   << "event_id=" << rendMod.event_id().id() << ";"
                    << "type=" << rendModType << ";"
                    << "location=" << location << ";"
                    << "participant_id=" << practitioner << ";"
@@ -329,7 +377,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector <std::string> subV = subscribedTopics[cid];
+            std::vector<std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), rendMod.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Render_Modification") !=
                 subV.end()) {
@@ -634,9 +682,7 @@ void DispatchRequest(Client *c, std::string const &request) {
         messageOut << "SCENARIO" << "=" << currentScenario << "|";
         messageOut << "STATE" << "=" << currentState << "|";
         Server::SendToClient(c, messageOut.str());
-    }
-    else if(boost::starts_with(request, "LABS"))
-    {
+    } else if (boost::starts_with(request, "LABS")) {
         LOG_DEBUG << "LABS request: " << request;
         const auto equals_idx = request.find_first_of(';');
         if (std::string::npos != equals_idx) {
@@ -713,7 +759,7 @@ void *Server::HandleClient(void *args) {
             if (!boost::algorithm::ends_with(globalInboundBuffer[c->id], "\n")) {
                 continue;
             }
-            vector <string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
+            vector<string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
             globalInboundBuffer[c->id].clear();
 
             for (auto str : strings) {
@@ -804,20 +850,20 @@ void *Server::HandleClient(void *args) {
 
                         LOG_INFO << "Received a message for topic " << topic << " with a payload of: " << message;
 
-                        std::list <std::string> tokenList;
+                        std::list<std::string> tokenList;
                         split(tokenList, message, boost::algorithm::is_any_of(";"), boost::token_compress_on);
-                        std::map <std::string, std::string> kvp;
+                        std::map<std::string, std::string> kvp;
 
                         BOOST_FOREACH(std::string
-                        token, tokenList) {
-                            size_t sep_pos = token.find_first_of("=");
-                            std::string key = token.substr(0, sep_pos);
-                            std::string value = (sep_pos == std::string::npos ? "" : token.substr(
-                                    sep_pos + 1,
-                                    std::string::npos));
-                            kvp[key] = value;
-                            LOG_DEBUG << "\t" << key << " => " << kvp[key];
-                        }
+                                              token, tokenList) {
+                                        size_t sep_pos = token.find_first_of("=");
+                                        std::string key = token.substr(0, sep_pos);
+                                        std::string value = (sep_pos == std::string::npos ? "" : token.substr(
+                                                sep_pos + 1,
+                                                std::string::npos));
+                                        kvp[key] = value;
+                                        LOG_DEBUG << "\t" << key << " => " << kvp[key];
+                                    }
 
                         auto type = kvp.find("type");
                         if (type != kvp.end()) {
@@ -866,6 +912,8 @@ void *Server::HandleClient(void *args) {
                             renderMod.type(modType);
                             renderMod.data(modPayload);
                             mgr->WriteRenderModification(renderMod);
+                            LOG_INFO << "We sent a render mod of type " << renderMod.type();
+                            LOG_INFO << "\tPayload was: " << renderMod.data();
                         } else if (topic == "AMM_Physiology_Modification") {
                             AMM::UUID erID;
                             erID.id(mgr->GenerateUuidString());
@@ -888,7 +936,7 @@ void *Server::HandleClient(void *args) {
                             physMod.type(modType);
                             physMod.data(modPayload);
                             mgr->WritePhysiologyModification(physMod);
-                        } else if (topic == "AMM_Performance_Assessment") {
+                        } else if (topic == "AMM_Assessment") {
                             AMM::UUID erID;
                             erID.id(mgr->GenerateUuidString());
                             FMA_Location fma;
@@ -971,7 +1019,7 @@ void PublishConfiguration() {
 }
 
 int main(int argc, const char *argv[]) {
-    static plog::ColorConsoleAppender <plog::TxtFormatter> consoleAppender;
+    static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
     plog::init(plog::verbose, &consoleAppender);
 
     LOG_INFO << "=== [AMM - TCP Bridge] ===";
@@ -1017,6 +1065,7 @@ int main(int argc, const char *argv[]) {
     mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
     mgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
     mgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
+    mgr->CreateAssessmentSubscriber(&tl, &TCPBridgeListener::onNewAssessment);
     mgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
     mgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
     mgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
@@ -1025,6 +1074,7 @@ int main(int argc, const char *argv[]) {
     mgr->CreateSimulationControlPublisher();
     mgr->CreateCommandPublisher();
     mgr->CreateInstrumentDataPublisher();
+    mgr->CreateAssessmentPublisher();
 
     m_uuid.id(mgr->GenerateUuidString());
 
@@ -1032,7 +1082,6 @@ int main(int argc, const char *argv[]) {
 
     PublishOperationalDescription();
     PublishConfiguration();
-
 
     std::thread t1(UdpDiscoveryThread);
     s = new Server(bridgePort);
