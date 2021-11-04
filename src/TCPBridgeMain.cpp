@@ -300,7 +300,7 @@ public:
         std::string eData;
         std::string pType;
 
-        LOG_INFO << "Received an event record of type " << er.type() << " on DDS bus, so we're storing it in a simple map.";
+        LOG_DEBUG << "Received an event record of type " << er.type() << " on DDS bus, so we're storing it in a simple map.";
         eventRecords[er.id().id()] = er;
         location = er.location().name();
         practitioner = er.agent_id().id();
