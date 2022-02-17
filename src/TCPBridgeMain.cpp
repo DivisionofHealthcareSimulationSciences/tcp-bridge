@@ -44,7 +44,7 @@ int bridgePort = 9015;
 int daemonize = 1;
 int discovery = 1;
 
-std::map<std::string, std::string> globalInboundBuffer;
+std::map <std::string, std::string> globalInboundBuffer;
 
 const string capabilityPrefix = "CAPABILITY=";
 const string settingsPrefix = "SETTINGS=";
@@ -72,14 +72,14 @@ string encodedConfig = "";
 
 bool closed = false;
 
-std::map<std::string, std::vector<std::string>> subscribedTopics;
-std::map<std::string, std::vector<std::string>> publishedTopics;
+std::map <std::string, std::vector<std::string>> subscribedTopics;
+std::map <std::string, std::vector<std::string>> publishedTopics;
 
-std::map<std::string, std::map<std::string, double>> labNodes;
-std::map<std::string, std::map<std::string, std::string>> equipmentSettings;
-std::map<std::string, std::string> clientMap;
-std::map<std::string, std::string> clientTypeMap;
-std::map<std::string, AMM::EventRecord> eventRecords;
+std::map <std::string, std::map<std::string, double>> labNodes;
+std::map <std::string, std::map<std::string, std::string>> equipmentSettings;
+std::map <std::string, std::string> clientMap;
+std::map <std::string, std::string> clientTypeMap;
+std::map <std::string, AMM::EventRecord> eventRecords;
 
 void InitializeLabNodes() {
     //
@@ -197,7 +197,7 @@ class TCPBridgeListener; // forward declare
 
 const std::string moduleName = "AMM_TCP_Bridge";
 const std::string configFile = "config/tcp_bridge_amm.xml";
-AMM::DDSManager<TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
+AMM::DDSManager <TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
 AMM::UUID m_uuid;
 
 /**
@@ -213,7 +213,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), hfname) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
@@ -239,7 +239,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), n.name()) != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
@@ -279,7 +279,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
 
             if (std::find(subV.begin(), subV.end(), pm.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Physiology_Modification") !=
@@ -300,7 +300,8 @@ public:
         std::string eData;
         std::string pType;
 
-        LOG_DEBUG << "Received an event record of type " << er.type() << " on DDS bus, so we're storing it in a simple map.";
+        LOG_DEBUG << "Received an event record of type " << er.type()
+                  << " on DDS bus, so we're storing it in a simple map.";
         eventRecords[er.id().id()] = er;
         location = er.location().name();
         practitioner = er.agent_id().id();
@@ -325,7 +326,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), "AMM_EventRecord") != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
@@ -367,7 +368,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), "AMM_Assessment") != subV.end()) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
@@ -415,7 +416,7 @@ public:
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
-            std::vector<std::string> subV = subscribedTopics[cid];
+            std::vector <std::string> subV = subscribedTopics[cid];
             if (std::find(subV.begin(), subV.end(), rendMod.type()) != subV.end() ||
                 std::find(subV.begin(), subV.end(), "AMM_Render_Modification") !=
                 subV.end()) {
@@ -467,6 +468,44 @@ public:
                 //SaveSimulation(doWriteTopic);
                 break;
             }
+        }
+    }
+
+    void onNewOperationalDescription(AMM::OperationalDescription &opD, SampleInfo_t *info) {
+        // LOG_INFO << "Operational description for module " << opD.name() << " / model " << opD.model();
+
+        // [AMM_OperationalDescription]name=;description=;manufacturer=;model=;serial_number=;module_id=;module_version=;configuration_version=;AMM_version=;capabilities_configuration=(BASE64 ENCODED STRING - URLSAFE)
+
+        std::ostringstream messageOut;
+        std::string capabilities = Utility::encode64(opD.capabilities_schema());
+
+        messageOut << "[AMM_OperationalDescription]"
+                   << "name=" << opD.name() << ";"
+                   << "description=" << opD.description() << ";"
+                   << "manufacturer=" << opD.manufacturer() << ";"
+                   << "model=" << opD.model() << ";"
+                   << "serial_number=" << opD.serial_number() << ";"
+                   << "module_id=" << opD.module_id().id() << ";"
+                   << "module_version=" << opD.module_version() << ";"
+                   << "configuration_version=" << opD.configuration_version() << ";"
+                   << "AMM_version=" << opD.AMM_version() << ";"
+                   << "capabilities_configuration=" << capabilities
+                   << std::endl;
+        string stringOut = messageOut.str();
+
+        // LOG_DEBUG << "Received an Operational Description via DDS, republishing to TCP clients: " << stringOut;
+
+        auto it = clientMap.begin();
+        while (it != clientMap.end()) {
+            std::string cid = it->first;
+            std::vector <std::string> subV = subscribedTopics[cid];
+            if (std::find(subV.begin(), subV.end(), "AMM_OperationalDescription") != subV.end()) {
+                Client *c = Server::GetClientByIndex(cid);
+                if (c) {
+                    Server::SendToClient(c, stringOut);
+                }
+            }
+            ++it;
         }
     }
 
@@ -797,7 +836,7 @@ void *Server::HandleClient(void *args) {
             if (!boost::algorithm::ends_with(globalInboundBuffer[c->id], "\n")) {
                 continue;
             }
-            vector<string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
+            vector <string> strings = Utility::explode("\n", globalInboundBuffer[c->id]);
             globalInboundBuffer[c->id].clear();
 
             for (auto str : strings) {
@@ -888,20 +927,20 @@ void *Server::HandleClient(void *args) {
 
                         LOG_INFO << "Received a message for topic " << topic << " with a payload of: " << message;
 
-                        std::list<std::string> tokenList;
+                        std::list <std::string> tokenList;
                         split(tokenList, message, boost::algorithm::is_any_of(";"), boost::token_compress_on);
-                        std::map<std::string, std::string> kvp;
+                        std::map <std::string, std::string> kvp;
 
                         BOOST_FOREACH(std::string
-                                              token, tokenList) {
-                                        size_t sep_pos = token.find_first_of("=");
-                                        std::string key = token.substr(0, sep_pos);
-                                        std::string value = (sep_pos == std::string::npos ? "" : token.substr(
-                                                sep_pos + 1,
-                                                std::string::npos));
-                                        kvp[key] = value;
-                                        LOG_DEBUG << "\t" << key << " => " << kvp[key];
-                                    }
+                        token, tokenList) {
+                            size_t sep_pos = token.find_first_of("=");
+                            std::string key = token.substr(0, sep_pos);
+                            std::string value = (sep_pos == std::string::npos ? "" : token.substr(
+                                    sep_pos + 1,
+                                    std::string::npos));
+                            kvp[key] = value;
+                            LOG_DEBUG << "\t" << key << " => " << kvp[key];
+                        }
 
                         auto type = kvp.find("type");
                         if (type != kvp.end()) {
@@ -1057,7 +1096,7 @@ void PublishConfiguration() {
 }
 
 int main(int argc, const char *argv[]) {
-    static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+    static plog::ColorConsoleAppender <plog::TxtFormatter> consoleAppender;
     plog::init(plog::verbose, &consoleAppender);
 
     LOG_INFO << "=== [AMM - TCP Bridge] ===";
@@ -1107,6 +1146,7 @@ int main(int argc, const char *argv[]) {
     mgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
     mgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
     mgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
+    mgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
     mgr->CreateRenderModificationPublisher();
     mgr->CreatePhysiologyModificationPublisher();
     mgr->CreateSimulationControlPublisher();
