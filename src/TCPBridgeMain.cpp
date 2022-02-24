@@ -472,7 +472,7 @@ public:
     }
 
     void onNewOperationalDescription(AMM::OperationalDescription &opD, SampleInfo_t *info) {
-        // LOG_INFO << "Operational description for module " << opD.name() << " / model " << opD.model();
+        LOG_INFO << "Operational description for module " << opD.name() << " / model " << opD.model();
 
         // [AMM_OperationalDescription]name=;description=;manufacturer=;model=;serial_number=;module_id=;module_version=;configuration_version=;AMM_version=;capabilities_configuration=(BASE64 ENCODED STRING - URLSAFE)
 
@@ -493,7 +493,7 @@ public:
                    << std::endl;
         string stringOut = messageOut.str();
 
-        // LOG_DEBUG << "Received an Operational Description via DDS, republishing to TCP clients: " << stringOut;
+        LOG_DEBUG << "Received an Operational Description via DDS, republishing to TCP clients: " << stringOut;
 
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
@@ -654,7 +654,7 @@ void HandleCapabilities(Client *c, std::string const &capabilityVal) {
     od.module_id(m_uuid);
     od.module_version(moduleVersion);
     // const std::string capabilities = AMM::Utility::read_file_to_string("config/tcp_bridge_capabilities.xml");
-    // od.capabilities_schema(capabilities);
+    od.capabilities_schema(capabilityVal);
     od.description();
     mgr->WriteOperationalDescription(od);
 
