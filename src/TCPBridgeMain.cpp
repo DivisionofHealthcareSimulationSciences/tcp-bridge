@@ -808,7 +808,7 @@ void DispatchRequest(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::
 // Override client handler code from Net Server
 void *Server::HandleClient(void *args) {
     auto *c = (Client *) args;
-    //AMM::DDSManager <TCPBridgeListener> *tmgr = (AMM::DDSManager <TCPBridgeListener> *) args;
+    AMM::DDSManager <TCPBridgeListener> *tmgr = (AMM::DDSManager <TCPBridgeListener> *) args;
     char buffer[8192 - 25];
     int index;
     ssize_t n;
