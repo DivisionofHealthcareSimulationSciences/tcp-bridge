@@ -34,6 +34,8 @@ using namespace tinyxml2;
 using namespace AMM;
 using namespace std;
 using namespace std::chrono;
+using namespace eprosima::fastdds::dds;
+using namespace eprosima::fastrtps::rtps;
 
 Server *s;
 
@@ -79,7 +81,7 @@ std::map <std::string, std::map<std::string, double>> labNodes;
 std::map <std::string, std::map<std::string, std::string>> equipmentSettings;
 std::map <std::string, std::string> clientMap;
 std::map <std::string, std::string> clientTypeMap;
-std::map <std::string, AMM::EventRecord> eventRecords;
+
 
 void InitializeLabNodes() {
     //
@@ -193,11 +195,9 @@ void sendConfigToAll(std::string scene) {
     }
 }
 
-class TCPBridgeListener; // forward declare
-
 const std::string moduleName = "AMM_TCP_Bridge";
-const std::string configFile = "config/tcp_bridge_amm.xml";
-AMM::DDSManager <TCPBridgeListener> *mgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
+//const std::string configFile = "config/tcp_bridge_amm.xml";
+//AMM::DDSManager <TCPBridgeListener> *tmgr = new AMM::DDSManager<TCPBridgeListener>(configFile);
 AMM::UUID m_uuid;
 
 /**
@@ -205,10 +205,24 @@ AMM::UUID m_uuid;
  */
 class TCPBridgeListener {
 public:
+    std::map <std::string, AMM::EventRecord> eventRecords;
+    AMM::DDSManager <TCPBridgeListener> *mgr;
+    std::string manikin_id = "1";
+
+    void setManager(AMM::DDSManager <TCPBridgeListener> *tmgr) {
+        mgr = tmgr;
+    }
+
+    void setManikinID(std::string mid) {
+        manikin_id = mid;
+    }
+
+    std::string getManikinID() {
+        return manikin_id;
+    }
 
     /// Event handler for incoming Physiology Waveform data.
     void onNewPhysiologyWaveform(AMM::PhysiologyWaveform &n, SampleInfo_t *info) {
-        ;
         std::string hfname = "HF_" + n.name();
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
@@ -218,7 +232,7 @@ public:
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
                     std::ostringstream messageOut;
-                    messageOut << n.name() << "=" << n.value() << "|" << std::endl;
+                    messageOut << n.name() << "=" << n.value() << ";mid=" << manikin_id << "|" << std::endl;
                     string stringOut = messageOut.str();
                     Server::SendToClient(c, messageOut.str());
                 }
@@ -245,7 +259,7 @@ public:
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
                     std::ostringstream messageOut;
-                    messageOut << n.name() << "=" << n.value() << "|" << std::endl;
+                    messageOut << n.name() << "=" << n.value() << ";mid=" << manikin_id << "|" << std::endl;
                     Server::SendToClient(c, messageOut.str());
                 }
             }
@@ -266,6 +280,7 @@ public:
         std::ostringstream messageOut;
         messageOut << "[AMM_Physiology_Modification]"
                    << "id=" << pm.id().id() << ";"
+                   << "mid=" << manikin_id << ";"
                    << "event_id=" << pm.event_id().id() << ";"
                    << "type=" << pm.type() << ";"
                    << "location=" << location << ";"
@@ -313,6 +328,7 @@ public:
 
         messageOut << "[AMM_EventRecord]"
                    << "id=" << er.id().id() << ";"
+                   << "mid=" << manikin_id << ";"
                    << "type=" << eType << ";"
                    << "location=" << location << ";"
                    << "participant_id=" << practitioner << ";"
@@ -354,6 +370,7 @@ public:
 
         messageOut << "[AMM_Assessment]"
                    << "id=" << a.id().id() << ";"
+                   << "mid=" << manikin_id << ";"
                    << "event_id=" << a.event_id().id() << ";"
                    << "type=" << eType << ";"
                    << "location=" << location << ";"
@@ -402,6 +419,7 @@ public:
         }
         messageOut << "[AMM_Render_Modification]"
                    << "id=" << rendMod.id().id() << ";"
+                   << "mid=" << manikin_id << ";"
                    << "event_id=" << rendMod.event_id().id() << ";"
                    << "type=" << rendModType << ";"
                    << "location=" << location << ";"
@@ -510,6 +528,7 @@ public:
     }
 
     void onNewCommand(AMM::Command &c, eprosima::fastrtps::SampleInfo_t *info) {
+        LOG_INFO << "** Message came in on manikin " << manikin_id;
         if (!c.message().compare(0, sysPrefix.size(), sysPrefix)) {
             std::string value = c.message().substr(sysPrefix.size());
             if (value.compare("START_SIM") == 0) {
@@ -581,7 +600,7 @@ public:
 };
 
 
-void PublishSettings(std::string const &equipmentType) {
+void PublishSettings(AMM::DDSManager <TCPBridgeListener> *tmgr, std::string const &equipmentType) {
     std::ostringstream payload;
     LOG_INFO << "Publishing equipment " << equipmentType << " settings";
     for (auto &inner_map_pair : equipmentSettings[equipmentType]) {
@@ -593,10 +612,10 @@ void PublishSettings(std::string const &equipmentType) {
     AMM::InstrumentData i;
     i.instrument(equipmentType);
     i.payload(payload.str());
-    mgr->WriteInstrumentData(i);
+    tmgr->WriteInstrumentData(i);
 }
 
-void HandleSettings(Client *c, std::string const &settingsVal) {
+void HandleSettings(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::string const &settingsVal) {
     XMLDocument doc(false);
     doc.Parse(settingsVal.c_str());
     tinyxml2::XMLNode *root =
@@ -623,12 +642,12 @@ void HandleSettings(Client *c, std::string const &settingsVal) {
                             settingValue;
                 }
             }
-            PublishSettings(capabilityName);
+            PublishSettings(tmgr, capabilityName);
         }
     }
 }
 
-void HandleCapabilities(Client *c, std::string const &capabilityVal) {
+void HandleCapabilities(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::string const &capabilityVal) {
     XMLDocument doc(false);
     doc.Parse(capabilityVal.c_str());
 
@@ -656,7 +675,7 @@ void HandleCapabilities(Client *c, std::string const &capabilityVal) {
     // const std::string capabilities = AMM::Utility::read_file_to_string("config/tcp_bridge_capabilities.xml");
     od.capabilities_schema(capabilityVal);
     od.description();
-    mgr->WriteOperationalDescription(od);
+    tmgr->WriteOperationalDescription(od);
 
     // Set the client's type
     ServerThread::LockMutex(c->id);
@@ -685,7 +704,7 @@ void HandleCapabilities(Client *c, std::string const &capabilityVal) {
                     equipmentSettings[capabilityName][settingName] =
                             settingValue;
                 }
-                PublishSettings(capabilityName);
+                PublishSettings(tmgr, capabilityName);
             }
 
             tinyxml2::XMLNode *subs =
@@ -729,7 +748,7 @@ void HandleCapabilities(Client *c, std::string const &capabilityVal) {
     }
 }
 
-void HandleStatus(Client *c, std::string const &statusVal) {
+void HandleStatus(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::string const &statusVal) {
     XMLDocument doc(false);
     doc.Parse(statusVal.c_str());
 
@@ -748,10 +767,11 @@ void HandleStatus(Client *c, std::string const &statusVal) {
     } else {
         s.value(AMM::StatusValue::OPERATIONAL);
     }
-    mgr->WriteStatus(s);
+    tmgr->WriteStatus(s);
 }
 
-void DispatchRequest(Client *c, std::string const &request) {
+void DispatchRequest(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::string const &request,
+                     std::string mid = std::string()) {
     if (boost::starts_with(request, "STATUS")) {
         LOG_DEBUG << "STATUS request";
         std::ostringstream messageOut;
@@ -768,7 +788,7 @@ void DispatchRequest(Client *c, std::string const &request) {
             auto it = labNodes[str].begin();
             while (it != labNodes[str].end()) {
                 std::ostringstream messageOut;
-                messageOut << it->first << "=" << it->second << ":" << str << "|";
+                messageOut << it->first << "=" << it->second << ":" << str << ";mid=" << mid << "|";
                 Server::SendToClient(c, messageOut.str());
                 ++it;
             }
@@ -777,7 +797,7 @@ void DispatchRequest(Client *c, std::string const &request) {
             auto it = labNodes["ALL"].begin();
             while (it != labNodes["ALL"].end()) {
                 std::ostringstream messageOut;
-                messageOut << it->first << "=" << it->second << "|";
+                messageOut << it->first << "=" << it->second << ";mid=" << mid << "|";
                 Server::SendToClient(c, messageOut.str());
                 ++it;
             }
@@ -788,11 +808,12 @@ void DispatchRequest(Client *c, std::string const &request) {
 // Override client handler code from Net Server
 void *Server::HandleClient(void *args) {
     auto *c = (Client *) args;
+    //AMM::DDSManager <TCPBridgeListener> *tmgr = (AMM::DDSManager <TCPBridgeListener> *) args;
     char buffer[8192 - 25];
     int index;
     ssize_t n;
 
-    std::string uuid = mgr->GenerateUuidString();
+    std::string uuid = tmgr->GenerateUuidString();
 
     ServerThread::LockMutex(uuid);
     c->SetId(uuid);
@@ -867,7 +888,7 @@ void *Server::HandleClient(void *args) {
                         }
 
                         LOG_DEBUG << "Client " << c->id << " sent status: " << statusVal;
-                        HandleStatus(c, statusVal);
+                        HandleStatus(tmgr, c, statusVal);
                     } else if (str.substr(0, capabilityPrefix.size()) ==
                                capabilityPrefix) {
                         // Client sent their capabilities / announced
@@ -880,7 +901,7 @@ void *Server::HandleClient(void *args) {
                         }
                         LOG_INFO << "Client " << c->id
                                  << " sent capabilities: " << capabilityVal;
-                        HandleCapabilities(c, capabilityVal);
+                        HandleCapabilities(tmgr, c, capabilityVal);
                     } else if (str.substr(0, settingsPrefix.size()) == settingsPrefix) {
                         std::string settingsVal;
                         try {
@@ -890,7 +911,7 @@ void *Server::HandleClient(void *args) {
                             break;
                         }
                         LOG_INFO << "Client " << c->id << " sent settings: " << settingsVal;
-                        HandleSettings(c, settingsVal);
+                        HandleSettings(tmgr, c, settingsVal);
                     } else if (str.substr(0, keepHistoryPrefix.size()) ==
                                keepHistoryPrefix) {
                         // Setting the KEEP_HISTORY flag
@@ -905,7 +926,7 @@ void *Server::HandleClient(void *args) {
                         }
                     } else if (str.substr(0, requestPrefix.size()) == requestPrefix) {
                         std::string request = str.substr(requestPrefix.size());
-                        DispatchRequest(c, request);
+                        DispatchRequest(tmgr, c, request);
                     } else if (str.substr(0, actionPrefix.size()) == actionPrefix) {
                         // Sending action
                         std::string action = str.substr(actionPrefix.size());
@@ -925,7 +946,7 @@ void *Server::HandleClient(void *args) {
                             continue;
                         }
 
-                        LOG_INFO << "Received a message for topic " << topic << " with a payload of: " << message;
+                        LOG_INFO << "[Received a message for topic " << topic << " with a payload of: " << message;
 
                         std::list <std::string> tokenList;
                         split(tokenList, message, boost::algorithm::is_any_of(";"), boost::token_compress_on);
@@ -969,7 +990,7 @@ void *Server::HandleClient(void *args) {
 
                         if (topic == "AMM_Render_Modification") {
                             AMM::UUID erID;
-                            erID.id(mgr->GenerateUuidString());
+                            erID.id(tmgr->GenerateUuidString());
 
                             FMA_Location fma;
                             fma.name(modLocation);
@@ -982,18 +1003,18 @@ void *Server::HandleClient(void *args) {
                             er.location(fma);
                             er.agent_id(agentID);
                             er.type(modType);
-                            mgr->WriteEventRecord(er);
+                            tmgr->WriteEventRecord(er);
 
                             AMM::RenderModification renderMod;
                             renderMod.event_id(erID);
                             renderMod.type(modType);
                             renderMod.data(modPayload);
-                            mgr->WriteRenderModification(renderMod);
+                            tmgr->WriteRenderModification(renderMod);
                             LOG_INFO << "We sent a render mod of type " << renderMod.type();
                             LOG_INFO << "\tPayload was: " << renderMod.data();
                         } else if (topic == "AMM_Physiology_Modification") {
                             AMM::UUID erID;
-                            erID.id(mgr->GenerateUuidString());
+                            erID.id(tmgr->GenerateUuidString());
 
                             FMA_Location fma;
                             fma.name(modLocation);
@@ -1006,16 +1027,16 @@ void *Server::HandleClient(void *args) {
                             er.location(fma);
                             er.agent_id(agentID);
                             er.type(modType);
-                            mgr->WriteEventRecord(er);
+                            tmgr->WriteEventRecord(er);
 
                             AMM::PhysiologyModification physMod;
                             physMod.event_id(erID);
                             physMod.type(modType);
                             physMod.data(modPayload);
-                            mgr->WritePhysiologyModification(physMod);
+                            tmgr->WritePhysiologyModification(physMod);
                         } else if (topic == "AMM_Assessment") {
                             AMM::UUID erID;
-                            erID.id(mgr->GenerateUuidString());
+                            erID.id(tmgr->GenerateUuidString());
                             FMA_Location fma;
                             fma.name(modLocation);
                             AMM::UUID agentID;
@@ -1025,15 +1046,15 @@ void *Server::HandleClient(void *args) {
                             er.location(fma);
                             er.agent_id(agentID);
                             er.type(modType);
-                            mgr->WriteEventRecord(er);
+                            tmgr->WriteEventRecord(er);
 
                             AMM::Assessment assessment;
                             assessment.event_id(erID);
-                            mgr->WriteAssessment(assessment);
+                            tmgr->WriteAssessment(assessment);
                         } else if (topic == "AMM_Command") {
                             AMM::Command cmdInstance;
                             cmdInstance.message(message);
-                            mgr->WriteCommand(cmdInstance);
+                            tmgr->WriteCommand(cmdInstance);
                         } else {
                             LOG_DEBUG << "Unknown topic: " << topic;
                         }
@@ -1070,7 +1091,7 @@ static void show_usage(const std::string &name) {
               << std::endl;
 }
 
-void PublishOperationalDescription() {
+void PublishOperationalDescription(AMM::DDSManager <TCPBridgeListener> *tmgr) {
     AMM::OperationalDescription od;
     od.name(moduleName);
     od.model("TCP Bridge");
@@ -1081,10 +1102,10 @@ void PublishOperationalDescription() {
     const std::string capabilities = AMM::Utility::read_file_to_string("config/tcp_bridge_capabilities.xml");
     od.capabilities_schema(capabilities);
     od.description();
-    mgr->WriteOperationalDescription(od);
+    tmgr->WriteOperationalDescription(od);
 }
 
-void PublishConfiguration() {
+void PublishConfiguration(AMM::DDSManager <TCPBridgeListener> *tmgr) {
     AMM::ModuleConfiguration mc;
     auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     mc.timestamp(ms);
@@ -1092,7 +1113,48 @@ void PublishConfiguration() {
     mc.name(moduleName);
     const std::string configuration = AMM::Utility::read_file_to_string("config/tcp_bridge_configuration.xml");
     mc.capabilities_configuration(configuration);
-    mgr->WriteModuleConfiguration(mc);
+    tmgr->WriteModuleConfiguration(mc);
+}
+
+void InitializeManager(AMM::DDSManager <TCPBridgeListener> *tmgr, std::string manikin_id) {
+    TCPBridgeListener tl;
+
+    tl.setManager(tmgr);
+    tl.setManikinID(manikin_id);
+
+    tmgr->InitializeCommand();
+    tmgr->InitializeInstrumentData();
+    tmgr->InitializeSimulationControl();
+    tmgr->InitializePhysiologyModification();
+    tmgr->InitializeRenderModification();
+    tmgr->InitializeAssessment();
+    tmgr->InitializePhysiologyValue();
+    tmgr->InitializePhysiologyWaveform();
+    tmgr->InitializeEventRecord();
+    tmgr->InitializeOperationalDescription();
+    tmgr->InitializeModuleConfiguration();
+    tmgr->InitializeStatus();
+
+    tmgr->CreateOperationalDescriptionPublisher();
+    tmgr->CreateModuleConfigurationPublisher();
+    tmgr->CreateStatusPublisher();
+    tmgr->CreateEventRecordPublisher();
+    tmgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
+    tmgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
+    tmgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
+    tmgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
+    tmgr->CreateAssessmentSubscriber(&tl, &TCPBridgeListener::onNewAssessment);
+    tmgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
+    tmgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
+    tmgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
+    tmgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
+    tmgr->CreateRenderModificationPublisher();
+    tmgr->CreatePhysiologyModificationPublisher();
+    tmgr->CreateSimulationControlPublisher();
+    tmgr->CreateCommandPublisher();
+    tmgr->CreateInstrumentDataPublisher();
+    tmgr->CreateAssessmentPublisher();
+    m_uuid.id(tmgr->GenerateUuidString());
 }
 
 int main(int argc, const char *argv[]) {
@@ -1119,47 +1181,11 @@ int main(int argc, const char *argv[]) {
 
     InitializeLabNodes();
 
-    TCPBridgeListener tl;
-
-    mgr->InitializeCommand();
-    mgr->InitializeInstrumentData();
-    mgr->InitializeSimulationControl();
-    mgr->InitializePhysiologyModification();
-    mgr->InitializeRenderModification();
-    mgr->InitializeAssessment();
-    mgr->InitializePhysiologyValue();
-    mgr->InitializePhysiologyWaveform();
-    mgr->InitializeEventRecord();
-    mgr->InitializeOperationalDescription();
-    mgr->InitializeModuleConfiguration();
-    mgr->InitializeStatus();
-
-    mgr->CreateOperationalDescriptionPublisher();
-    mgr->CreateModuleConfigurationPublisher();
-    mgr->CreateStatusPublisher();
-    mgr->CreateEventRecordPublisher();
-    mgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
-    mgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
-    mgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
-    mgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
-    mgr->CreateAssessmentSubscriber(&tl, &TCPBridgeListener::onNewAssessment);
-    mgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
-    mgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
-    mgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
-    mgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
-    mgr->CreateRenderModificationPublisher();
-    mgr->CreatePhysiologyModificationPublisher();
-    mgr->CreateSimulationControlPublisher();
-    mgr->CreateCommandPublisher();
-    mgr->CreateInstrumentDataPublisher();
-    mgr->CreateAssessmentPublisher();
-
-    m_uuid.id(mgr->GenerateUuidString());
-
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    PublishOperationalDescription();
-    PublishConfiguration();
+    AMM::DDSManager <TCPBridgeListener> *mgr1 = new AMM::DDSManager<TCPBridgeListener>("config/tcp_bridge_ajams.xml", "manikin_1");
+    InitializeManager(mgr1, "manikin_1");
+
 
     std::thread t1(UdpDiscoveryThread);
     s = new Server(bridgePort);

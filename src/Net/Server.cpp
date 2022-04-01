@@ -21,6 +21,9 @@ Server::Server(int port) {
     serverAddr.sin_port = htons(port);
 
     setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    setsockopt(serverSock, IPPROTO_TCP, TCP_NODELAY, (char *) &yes, sizeof(int));
+
+
 
     if (bind(serverSock, (struct sockaddr *) &serverAddr, sizeof(sockaddr_in)) < 0)
         cerr << "Failed to bind";
