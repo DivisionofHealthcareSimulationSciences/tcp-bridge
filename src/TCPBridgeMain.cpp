@@ -805,13 +805,72 @@ void DispatchRequest(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::
     }
 }
 
+class TPMS_POD {
+public:
+    AMM::DDSManager <TCPBridgeListener> *mgr1 = new AMM::DDSManager<TCPBridgeListener>("config/tcp_bridge_ajams.xml", "manikin_1");
+
+    AMM::DDSManager <TCPBridgeListener> *GetManikin1() {
+        return mgr1;
+    }
+
+    void InitializeManikins() {
+        InitializeManager(mgr1, "manikin_1");
+    }
+
+    void InitializeManager(AMM::DDSManager <TCPBridgeListener> *tmgr, std::string manikin_id) {
+        TCPBridgeListener tl;
+
+        tl.setManager(tmgr);
+        tl.setManikinID(manikin_id);
+
+        tmgr->InitializeCommand();
+        tmgr->InitializeInstrumentData();
+        tmgr->InitializeSimulationControl();
+        tmgr->InitializePhysiologyModification();
+        tmgr->InitializeRenderModification();
+        tmgr->InitializeAssessment();
+        tmgr->InitializePhysiologyValue();
+        tmgr->InitializePhysiologyWaveform();
+        tmgr->InitializeEventRecord();
+        tmgr->InitializeOperationalDescription();
+        tmgr->InitializeModuleConfiguration();
+        tmgr->InitializeStatus();
+
+        tmgr->CreateOperationalDescriptionPublisher();
+        tmgr->CreateModuleConfigurationPublisher();
+        tmgr->CreateStatusPublisher();
+        tmgr->CreateEventRecordPublisher();
+        tmgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
+        tmgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
+        tmgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
+        tmgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
+        tmgr->CreateAssessmentSubscriber(&tl, &TCPBridgeListener::onNewAssessment);
+        tmgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
+        tmgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
+        tmgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
+        tmgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
+        tmgr->CreateRenderModificationPublisher();
+        tmgr->CreatePhysiologyModificationPublisher();
+        tmgr->CreateSimulationControlPublisher();
+        tmgr->CreateCommandPublisher();
+        tmgr->CreateInstrumentDataPublisher();
+        tmgr->CreateAssessmentPublisher();
+        m_uuid.id(tmgr->GenerateUuidString());
+    }
+
+};
+
+TPMS_POD tpms;
+
 // Override client handler code from Net Server
 void *Server::HandleClient(void *args) {
     auto *c = (Client *) args;
-    AMM::DDSManager <TCPBridgeListener> *tmgr = (AMM::DDSManager <TCPBridgeListener> *) args;
+
     char buffer[8192 - 25];
     int index;
     ssize_t n;
+
+    AMM::DDSManager <TCPBridgeListener> *tmgr = tpms.GetManikin1();
 
     std::string uuid = tmgr->GenerateUuidString();
 
@@ -863,6 +922,7 @@ void *Server::HandleClient(void *args) {
             for (auto str : strings) {
                 boost::trim_right(str);
                 if (!str.empty()) {
+
                     if (str.substr(0, modulePrefix.size()) == modulePrefix) {
                         std::string moduleName = str.substr(modulePrefix.size());
 
@@ -934,9 +994,9 @@ void *Server::HandleClient(void *args) {
                                  << " posting action to AMM: " << action;
                         AMM::Command cmdInstance;
                         cmdInstance.message(action);
-                        // mgr->PublishCommand(cmdInstance);
+                        // tmgr->PublishCommand(cmdInstance);
                     } else if (!str.compare(0, genericTopicPrefix.size(), genericTopicPrefix)) {
-                        std::string topic, message, modType, modLocation, modPayload, modLearner, modInfo;
+                        std::string manikin_id, topic, message, modType, modLocation, modPayload, modLearner, modInfo;
                         unsigned first = str.find("[");
                         unsigned last = str.find("]");
                         topic = str.substr(first + 1, last - first - 1);
@@ -961,6 +1021,11 @@ void *Server::HandleClient(void *args) {
                                     std::string::npos));
                             kvp[key] = value;
                             LOG_DEBUG << "\t" << key << " => " << kvp[key];
+                        }
+
+                        auto mid = kvp.find("mid");
+                        if (mid != kvp.end()) {
+                            manikin_id = mid->second;
                         }
 
                         auto type = kvp.find("type");
@@ -1116,46 +1181,7 @@ void PublishConfiguration(AMM::DDSManager <TCPBridgeListener> *tmgr) {
     tmgr->WriteModuleConfiguration(mc);
 }
 
-void InitializeManager(AMM::DDSManager <TCPBridgeListener> *tmgr, std::string manikin_id) {
-    TCPBridgeListener tl;
 
-    tl.setManager(tmgr);
-    tl.setManikinID(manikin_id);
-
-    tmgr->InitializeCommand();
-    tmgr->InitializeInstrumentData();
-    tmgr->InitializeSimulationControl();
-    tmgr->InitializePhysiologyModification();
-    tmgr->InitializeRenderModification();
-    tmgr->InitializeAssessment();
-    tmgr->InitializePhysiologyValue();
-    tmgr->InitializePhysiologyWaveform();
-    tmgr->InitializeEventRecord();
-    tmgr->InitializeOperationalDescription();
-    tmgr->InitializeModuleConfiguration();
-    tmgr->InitializeStatus();
-
-    tmgr->CreateOperationalDescriptionPublisher();
-    tmgr->CreateModuleConfigurationPublisher();
-    tmgr->CreateStatusPublisher();
-    tmgr->CreateEventRecordPublisher();
-    tmgr->CreatePhysiologyValueSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyValue);
-    tmgr->CreatePhysiologyWaveformSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyWaveform);
-    tmgr->CreateCommandSubscriber(&tl, &TCPBridgeListener::onNewCommand);
-    tmgr->CreateSimulationControlSubscriber(&tl, &TCPBridgeListener::onNewSimulationControl);
-    tmgr->CreateAssessmentSubscriber(&tl, &TCPBridgeListener::onNewAssessment);
-    tmgr->CreateRenderModificationSubscriber(&tl, &TCPBridgeListener::onNewRenderModification);
-    tmgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
-    tmgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
-    tmgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
-    tmgr->CreateRenderModificationPublisher();
-    tmgr->CreatePhysiologyModificationPublisher();
-    tmgr->CreateSimulationControlPublisher();
-    tmgr->CreateCommandPublisher();
-    tmgr->CreateInstrumentDataPublisher();
-    tmgr->CreateAssessmentPublisher();
-    m_uuid.id(tmgr->GenerateUuidString());
-}
 
 int main(int argc, const char *argv[]) {
     static plog::ColorConsoleAppender <plog::TxtFormatter> consoleAppender;
@@ -1183,8 +1209,6 @@ int main(int argc, const char *argv[]) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    AMM::DDSManager <TCPBridgeListener> *mgr1 = new AMM::DDSManager<TCPBridgeListener>("config/tcp_bridge_ajams.xml", "manikin_1");
-    InitializeManager(mgr1, "manikin_1");
 
 
     std::thread t1(UdpDiscoveryThread);
