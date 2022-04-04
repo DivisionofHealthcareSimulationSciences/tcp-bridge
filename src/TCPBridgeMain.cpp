@@ -207,7 +207,7 @@ class TCPBridgeListener {
 public:
     std::map <std::string, AMM::EventRecord> eventRecords;
     AMM::DDSManager <TCPBridgeListener> *mgr;
-    std::string manikin_id = "1";
+    std::string manikin_id = "manikin_1";
 
     void setManager(AMM::DDSManager <TCPBridgeListener> *tmgr) {
         mgr = tmgr;
@@ -838,10 +838,12 @@ public:
     }
 
     void InitializeManikins() {
+        LOG_INFO << "Initializing DDS managers for each manikin...";
         InitializeManager(mgr1, "manikin_1");
     }
 
     void InitializeManager(AMM::DDSManager <TCPBridgeListener> *tmgr, std::string manikin_id) {
+        LOG_INFO << "\tinitializing " << manikin_id;
         TCPBridgeListener tl;
 
         tl.setManager(tmgr);
@@ -885,6 +887,8 @@ public:
 
 };
 
+TPMS_POD pod;
+
 std::string ExtractManikinIDFromString(std::string in) {
     LOG_INFO << "Extracting manikin ID from " << in;
     std::size_t pos = in.find("mid=");
@@ -896,8 +900,6 @@ std::string ExtractManikinIDFromString(std::string in) {
     return mid2;
 }
 
-TPMS_POD tpms;
-
 // Override client handler code from Net Server
 void *Server::HandleClient(void *args) {
     auto *c = (Client *) args;
@@ -906,7 +908,7 @@ void *Server::HandleClient(void *args) {
     int index;
     ssize_t n;
 
-    AMM::DDSManager <TCPBridgeListener> *tmgr = tpms.GetManikin1();
+    AMM::DDSManager <TCPBridgeListener> *tmgr = pod.GetManikin1();
 
     std::string uuid = tmgr->GenerateUuidString();
 
@@ -1244,9 +1246,9 @@ int main(int argc, const char *argv[]) {
 
     InitializeLabNodes();
 
+    pod.InitializeManikins();
+
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
-
-
 
     std::thread t1(UdpDiscoveryThread);
     s = new Server(bridgePort);
