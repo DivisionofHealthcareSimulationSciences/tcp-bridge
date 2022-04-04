@@ -221,6 +221,30 @@ public:
         return manikin_id;
     }
 
+    void onNewModuleConfiguration(AMM::ModuleConfiguration &mc, SampleInfo_t *info) {
+        LOG_TRACE << "Module Configuration recieved:\n"
+                  << "Name:         " << mc.name();
+
+
+        auto it = clientMap.begin();
+        while (it != clientMap.end()) {
+            std::string cid = it->first;
+            std::string clientType = clientTypeMap[it->first];
+            if (clientType == mc.name()) {
+                Client *c = Server::GetClientByIndex(cid);
+                if (c) {
+                    std::string encodedConfigContent = Utility::encode64(mc.capabilities_configuration());
+                    encodedConfig = configPrefix + encodedConfigContent + "\n";
+                    Server::SendToClient(c, encodedConfig);
+                }
+            }
+            ++it;
+        }
+
+
+
+    }
+
     /// Event handler for incoming Physiology Waveform data.
     void onNewPhysiologyWaveform(AMM::PhysiologyWaveform &n, SampleInfo_t *info) {
         std::string hfname = "HF_" + n.name();
@@ -849,6 +873,7 @@ public:
         tmgr->CreatePhysiologyModificationSubscriber(&tl, &TCPBridgeListener::onNewPhysiologyModification);
         tmgr->CreateEventRecordSubscriber(&tl, &TCPBridgeListener::onNewEventRecord);
         tmgr->CreateOperationalDescriptionSubscriber(&tl, &TCPBridgeListener::onNewOperationalDescription);
+        tmgr->CreateModuleConfigurationSubscriber(&tl, &TCPBridgeListener::onNewModuleConfiguration);
         tmgr->CreateRenderModificationPublisher();
         tmgr->CreatePhysiologyModificationPublisher();
         tmgr->CreateSimulationControlPublisher();
