@@ -573,16 +573,16 @@ public:
                 mgr->WriteSimulationControl(simControl);
                 InitializeLabNodes();
             } else if (!value.compare(0, loadScenarioPrefix.size(), loadScenarioPrefix)) {
-                currentScenario = value.substr(loadScenarioPrefix.size());
-                sendConfigToAll(currentScenario);
-                std::ostringstream messageOut;
-                messageOut << "ACT" << "=" << c.message() << std::endl;
-                s->SendToAll(messageOut.str());
+               // currentScenario = value.substr(loadScenarioPrefix.size());
+               // sendConfigToAll(currentScenario);
+               // std::ostringstream messageOut;
+               // messageOut << "ACT" << "=" << c.message() << std::endl;
+               // s->SendToAll(messageOut.str());
             } else if (!value.compare(0, loadPrefix.size(), loadPrefix)) {
-                currentState = value.substr(loadStatePrefix.size());
-                std::ostringstream messageOut;
-                messageOut << "ACT" << "=" << c.message() << std::endl;
-                s->SendToAll(messageOut.str());
+               // currentState = value.substr(loadStatePrefix.size());
+               // std::ostringstream messageOut;
+               // messageOut << "ACT" << "=" << c.message() << std::endl;
+               // s->SendToAll(messageOut.str());
             } else {
                 std::ostringstream messageOut;
                 messageOut << "ACT" << "=" << c.message() << std::endl;
@@ -860,6 +860,17 @@ public:
 
 };
 
+std::string ExtractManikinIDFromString(std::string in) {
+    LOG_INFO << "Extracting manikin ID from " << in;
+    std::size_t pos = in.find("mid=");
+    std::string mid1 = in.substr(pos);
+    // mid=asdasdasddasasda[;]
+    std::size_t pos1 = mid1.find(";");
+    std::string mid2 = mid1.substr(pos1);
+    LOG_INFO << "We resolved to " << mid2;
+    return mid2;
+}
+
 TPMS_POD tpms;
 
 // Override client handler code from Net Server
@@ -1027,6 +1038,7 @@ void *Server::HandleClient(void *args) {
                         if (mid != kvp.end()) {
                             manikin_id = mid->second;
                         }
+                        LOG_TRACE << "Manikin id is " << manikin_id;
 
                         auto type = kvp.find("type");
                         if (type != kvp.end()) {
