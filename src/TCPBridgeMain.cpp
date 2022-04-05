@@ -393,7 +393,7 @@ public:
         std::string location;
         std::string practitioner;
 
-        LOG_INFO << "Render mod received on DDS bus";
+        // LOG_INFO << "Render mod received on DDS bus";
         if (eventRecords.count(rendMod.event_id().id()) > 0) {
             AMM::EventRecord er = eventRecords[rendMod.event_id().id()];
             location = er.location().name();
@@ -422,7 +422,9 @@ public:
                    << std::endl;
         string stringOut = messageOut.str();
 
-        LOG_DEBUG << "Received a render mod via DDS, republishing to TCP clients: " << stringOut;
+        if (rendModType.find("START_OF") == std::string::npos) {
+            LOG_DEBUG << "Received a render mod via DDS, republishing to TCP clients: " << stringOut;
+        }
 
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
