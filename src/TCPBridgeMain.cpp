@@ -935,11 +935,12 @@ void *Server::HandleClient(void *args) {
             globalInboundBuffer[c->id].clear();
 
             for (auto str : strings) {
-
                 boost::trim_right(str);
-                std::string requestManikin = ExtractManikinIDFromString(str);
                 if (!str.empty()) {
-
+                    if (str.find("KEEPALIVE") != std::string::npos) {
+                        break;
+                    }
+                    std::string requestManikin = ExtractManikinIDFromString(str);
                     if (str.substr(0, modulePrefix.size()) == modulePrefix) {
                         std::string moduleName = str.substr(modulePrefix.size());
 
