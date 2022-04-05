@@ -422,7 +422,7 @@ public:
                    << std::endl;
         string stringOut = messageOut.str();
 
-        if (rendModType.find("START_OF") == std::string::npos) {
+        if (rendModPayload.find("START_OF") == std::string::npos) {
             LOG_DEBUG << "Received a render mod via DDS, republishing to TCP clients: " << stringOut;
         }
 
@@ -1076,6 +1076,14 @@ void *Server::HandleClient(void *args) {
                             modInfo = info->second;
                         }
 
+                        AMM::UUID erID;
+                        auto eid = kvp.find("event_id");
+                        if (eid != kvp.end()) {
+                            erID.id(eid->second);
+                        } else {
+                            erID.id(tmgr->GenerateUuidString());
+                        }
+
                         if (topic == "AMM_Render_Modification") {
                             AMM::UUID erID;
                             erID.id(tmgr->GenerateUuidString());
@@ -1101,8 +1109,6 @@ void *Server::HandleClient(void *args) {
                             LOG_INFO << "We sent a render mod of type " << renderMod.type();
                             LOG_INFO << "\tPayload was: " << renderMod.data();
                         } else if (topic == "AMM_Physiology_Modification") {
-                            AMM::UUID erID;
-                            erID.id(tmgr->GenerateUuidString());
 
                             FMA_Location fma;
                             fma.name(modLocation);
@@ -1123,8 +1129,6 @@ void *Server::HandleClient(void *args) {
                             physMod.data(modPayload);
                             tmgr->WritePhysiologyModification(physMod);
                         } else if (topic == "AMM_Assessment") {
-                            AMM::UUID erID;
-                            erID.id(tmgr->GenerateUuidString());
                             FMA_Location fma;
                             fma.name(modLocation);
                             AMM::UUID agentID;
