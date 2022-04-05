@@ -47,7 +47,7 @@ int daemonize = 1;
 int discovery = 1;
 
 std::map <std::string, std::string> globalInboundBuffer;
-
+const string DEFAULT_MANIKIN_ID = "manikin_1";
 const string capabilityPrefix = "CAPABILITY=";
 const string settingsPrefix = "SETTINGS=";
 const string statusPrefix = "STATUS=";
@@ -70,7 +70,6 @@ std::string currentScenario = "NONE";
 std::string currentState = "NONE";
 std::string currentStatus = "NOT RUNNING";
 bool isPaused = false;
-string encodedConfig = "";
 
 bool closed = false;
 
@@ -168,32 +167,6 @@ void InitializeLabNodes() {
     labNodes["CMP"]["MetabolicPanel_Protein"] = 0.0f;
 }
 
-void sendConfig(Client *c, std::string scene, std::string clientType) {
-    ostringstream static_filename;
-    static_filename << "static/module_configuration_static/" << scene << "_"
-                    << clientType << "_configuration.xml";
-    LOG_DEBUG << "Sending " << static_filename.str() << " to " << c->id;
-    std::ifstream ifs(static_filename.str());
-    std::string configContent((std::istreambuf_iterator<char>(ifs)),
-                              (std::istreambuf_iterator<char>()));
-    std::string encodedConfigContent = Utility::encode64(configContent);
-    encodedConfig = configPrefix + encodedConfigContent + "\n";
-
-    Server::SendToClient(c, encodedConfig);
-}
-
-void sendConfigToAll(std::string scene) {
-    auto it = clientMap.begin();
-    while (it != clientMap.end()) {
-        std::string cid = it->first;
-        std::string clientType = clientTypeMap[it->first];
-        Client *c = Server::GetClientByIndex(cid);
-        if (c) {
-            sendConfig(c, scene, clientType);
-        }
-        ++it;
-    }
-}
 
 const std::string moduleName = "AMM_TCP_Bridge";
 //const std::string configFile = "config/tcp_bridge_amm.xml";
@@ -222,27 +195,23 @@ public:
     }
 
     void onNewModuleConfiguration(AMM::ModuleConfiguration &mc, SampleInfo_t *info) {
-        LOG_TRACE << "Module Configuration recieved:\n"
-                  << "Name:         " << mc.name();
-
+        LOG_TRACE << "Module Configuration recieved for " << mc.name();
 
         auto it = clientMap.begin();
         while (it != clientMap.end()) {
             std::string cid = it->first;
             std::string clientType = clientTypeMap[it->first];
-            if (clientType == mc.name()) {
+            if (clientType.find(mc.name()) != std::string::npos) {
                 Client *c = Server::GetClientByIndex(cid);
                 if (c) {
                     std::string encodedConfigContent = Utility::encode64(mc.capabilities_configuration());
-                    encodedConfig = configPrefix + encodedConfigContent + "\n";
-                    Server::SendToClient(c, encodedConfig);
+                    std::ostringstream encodedConfig;
+                    encodedConfig << configPrefix << encodedConfigContent << ";mid=" << manikin_id << std::endl;
+                    Server::SendToClient(c, encodedConfig.str());
                 }
             }
             ++it;
         }
-
-
-
     }
 
     /// Event handler for incoming Physiology Waveform data.
@@ -479,8 +448,9 @@ public:
                 currentStatus = "RUNNING";
                 isPaused = false;
                 LOG_INFO << "Message recieved; Run sim.";
-                std::string tmsg = "ACT=START_SIM\n";
-                s->SendToAll(tmsg);
+                std::ostringstream tmsg;
+                tmsg << "ACT=START_SIM" << ";mid=" << manikin_id << std::endl;
+                s->SendToAll(tmsg.str());
                 break;
             }
 
@@ -491,8 +461,9 @@ public:
                     currentStatus = "NOT RUNNING";
                 }
                 LOG_INFO << "Message recieved; Halt sim";
-                std::string tmsg = "ACT=PAUSE_SIM\n";
-                s->SendToAll(tmsg);
+                std::ostringstream tmsg;
+                tmsg << "ACT=PAUSE_SIM" << ";mid=" << manikin_id << std::endl;
+                s->SendToAll(tmsg.str());
                 break;
             }
 
@@ -500,8 +471,9 @@ public:
                 currentStatus = "NOT RUNNING";
                 isPaused = false;
                 LOG_INFO << "Message recieved; Reset sim";
-                std::string tmsg = "ACT=RESET_SIM\n";
-                s->SendToAll(tmsg);
+                std::ostringstream tmsg;
+                tmsg << "ACT=RESET_SIM" << ";mid=" << manikin_id << std::endl;
+                s->SendToAll(tmsg.str());
                 break;
             }
 
@@ -523,6 +495,7 @@ public:
 
         messageOut << "[AMM_OperationalDescription]"
                    << "name=" << opD.name() << ";"
+                   << "mid=" << manikin_id << ";"
                    << "description=" << opD.description() << ";"
                    << "manufacturer=" << opD.manufacturer() << ";"
                    << "model=" << opD.model() << ";"
@@ -552,10 +525,10 @@ public:
     }
 
     void onNewCommand(AMM::Command &c, eprosima::fastrtps::SampleInfo_t *info) {
-        LOG_INFO << "** Message came in on manikin " << manikin_id;
+        LOG_INFO << "** Message came in on manikin " << manikin_id << ": " << c.message();
         if (!c.message().compare(0, sysPrefix.size(), sysPrefix)) {
             std::string value = c.message().substr(sysPrefix.size());
-            if (value.compare("START_SIM") == 0) {
+            if (value.find("START_SIM") != std::string::npos) {
                 currentStatus = "RUNNING";
                 isPaused = false;
                 AMM::SimulationControl simControl;
@@ -563,9 +536,9 @@ public:
                 simControl.timestamp(ms);
                 simControl.type(AMM::ControlType::RUN);
                 mgr->WriteSimulationControl(simControl);
-                std::string tmsg = "ACT=START_SIM";
+                std::string tmsg = "ACT=START_SIM;mid=" + manikin_id;
                 s->SendToAll(tmsg);
-            } else if (value.compare("STOP_SIM") == 0) {
+            } else if (value.find("STOP_SIM") != std::string::npos) {
                 currentStatus = "NOT RUNNING";
                 isPaused = false;
                 AMM::SimulationControl simControl;
@@ -573,9 +546,9 @@ public:
                 simControl.timestamp(ms);
                 simControl.type(AMM::ControlType::HALT);
                 mgr->WriteSimulationControl(simControl);
-                std::string tmsg = "ACT=STOP_SIM";
+                std::string tmsg = "ACT=STOP_SIM;mid=" + manikin_id;
                 s->SendToAll(tmsg);
-            } else if (value.compare("PAUSE_SIM") == 0) {
+            } else if (value.find("PAUSE_SIM") != std::string::npos) {
                 currentStatus = "PAUSED";
                 isPaused = true;
                 AMM::SimulationControl simControl;
@@ -583,12 +556,12 @@ public:
                 simControl.timestamp(ms);
                 simControl.type(AMM::ControlType::HALT);
                 mgr->WriteSimulationControl(simControl);
-                std::string tmsg = "ACT=PAUSE_SIM";
+                std::string tmsg = "ACT=PAUSE_SIM;mid=" + manikin_id;
                 s->SendToAll(tmsg);
-            } else if (value.compare("RESET_SIM") == 0) {
+            } else if (value.find("RESET_SIM") != std::string::npos) {
                 currentStatus = "NOT RUNNING";
                 isPaused = false;
-                std::string tmsg = "ACT=RESET_SIM";
+                std::string tmsg = "ACT=RESET_SIM;mid=" + manikin_id;
                 s->SendToAll(tmsg);
                 AMM::SimulationControl simControl;
                 auto ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -597,26 +570,26 @@ public:
                 mgr->WriteSimulationControl(simControl);
                 InitializeLabNodes();
             } else if (!value.compare(0, loadScenarioPrefix.size(), loadScenarioPrefix)) {
-               // currentScenario = value.substr(loadScenarioPrefix.size());
-               // sendConfigToAll(currentScenario);
-               // std::ostringstream messageOut;
-               // messageOut << "ACT" << "=" << c.message() << std::endl;
-               // s->SendToAll(messageOut.str());
+                // currentScenario = value.substr(loadScenarioPrefix.size());
+                // sendConfigToAll(currentScenario);
+                // std::ostringstream messageOut;
+                // messageOut << "ACT" << "=" << c.message() << std::endl;
+                // s->SendToAll(messageOut.str());
             } else if (!value.compare(0, loadPrefix.size(), loadPrefix)) {
-               // currentState = value.substr(loadStatePrefix.size());
-               // std::ostringstream messageOut;
-               // messageOut << "ACT" << "=" << c.message() << std::endl;
-               // s->SendToAll(messageOut.str());
+                // currentState = value.substr(loadStatePrefix.size());
+                // std::ostringstream messageOut;
+                // messageOut << "ACT" << "=" << c.message() << std::endl;
+                // s->SendToAll(messageOut.str());
             } else {
                 std::ostringstream messageOut;
-                messageOut << "ACT" << "=" << c.message() << std::endl;
+                messageOut << "ACT" << "=" << c.message() << ";mid=" << manikin_id << std::endl;
                 LOG_INFO << "Sending unknown system message: " << messageOut.str();
                 s->SendToAll(messageOut.str());
             }
         } else {
             std::ostringstream messageOut;
             messageOut << "ACT"
-                       << "=" << c.message() << "|";
+                       << "=" << c.message() << ";mid=" << manikin_id << std::endl;
             LOG_INFO << "Sending unknown message: " << messageOut.str();
             s->SendToAll(messageOut.str());
         }
@@ -831,7 +804,8 @@ void DispatchRequest(AMM::DDSManager <TCPBridgeListener> *tmgr, Client *c, std::
 
 class TPMS_POD {
 public:
-    AMM::DDSManager <TCPBridgeListener> *mgr1 = new AMM::DDSManager<TCPBridgeListener>("config/tcp_bridge_ajams.xml", "manikin_1");
+    AMM::DDSManager <TCPBridgeListener> *mgr1 = new AMM::DDSManager<TCPBridgeListener>("config/tcp_bridge_ajams.xml",
+                                                                                       "manikin_1");
 
     AMM::DDSManager <TCPBridgeListener> *GetManikin1() {
         return mgr1;
@@ -890,14 +864,17 @@ public:
 TPMS_POD pod;
 
 std::string ExtractManikinIDFromString(std::string in) {
-    LOG_INFO << "Extracting manikin ID from " << in;
     std::size_t pos = in.find("mid=");
-    std::string mid1 = in.substr(pos);
-    // mid=asdasdasddasasda[;]
-    std::size_t pos1 = mid1.find(";");
-    std::string mid2 = mid1.substr(pos1);
-    LOG_INFO << "We resolved to " << mid2;
-    return mid2;
+    if (pos != std::string::npos) {
+        std::string mid1 = in.substr(pos + 4);
+        std::size_t pos1 = mid1.find(";");
+        if (pos1 != std::string::npos) {
+            std::string mid2 = mid1.substr(0, pos1);
+            return mid2;
+        }
+        return mid1;
+    }
+    return {};
 }
 
 // Override client handler code from Net Server
@@ -958,7 +935,9 @@ void *Server::HandleClient(void *args) {
             globalInboundBuffer[c->id].clear();
 
             for (auto str : strings) {
+
                 boost::trim_right(str);
+                std::string requestManikin = ExtractManikinIDFromString(str);
                 if (!str.empty()) {
 
                     if (str.substr(0, modulePrefix.size()) == modulePrefix) {
@@ -1064,6 +1043,8 @@ void *Server::HandleClient(void *args) {
                         auto mid = kvp.find("mid");
                         if (mid != kvp.end()) {
                             manikin_id = mid->second;
+                        } else {
+                            manikin_id = DEFAULT_MANIKIN_ID;
                         }
                         LOG_TRACE << "Manikin id is " << manikin_id;
 
@@ -1165,7 +1146,7 @@ void *Server::HandleClient(void *args) {
                     } else if (str.substr(0, keepAlivePrefix.size()) == keepAlivePrefix) {
                         // keepalive, ignore it
                     } else {
-                        if (!boost::algorithm::ends_with(str, "Connected")) {
+                        if (!boost::algorithm::ends_with(str, "Connected") && str.size() > 3) {
                             LOG_ERROR << "Client " << c->id << " unknown message:" << str;
                         }
                     }
@@ -1221,7 +1202,6 @@ void PublishConfiguration(AMM::DDSManager <TCPBridgeListener> *tmgr) {
 }
 
 
-
 int main(int argc, const char *argv[]) {
     static plog::ColorConsoleAppender <plog::TxtFormatter> consoleAppender;
     plog::init(plog::verbose, &consoleAppender);
@@ -1243,6 +1223,7 @@ int main(int argc, const char *argv[]) {
             discovery = 0;
         }
     }
+
 
     InitializeLabNodes();
 
