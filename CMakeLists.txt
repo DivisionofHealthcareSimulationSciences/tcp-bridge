@@ -64,6 +64,8 @@ else ()
 endif ()
 
 find_package(amm_std REQUIRED)
+find_package(fastcdr REQUIRED)
+find_package(fastrtps REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${TinyXML2_INCLUDE_DIRS})
